@@ -5,11 +5,10 @@ set -e
 
 echo "Starting server setup..."
 
-# 1. Certbot 설치 (Snap 사용)
+# 1. 시스템 업데이트 및 Certbot 설치
 echo "Installing Certbot..."
-snap install core; snap refresh core
-snap install --classic certbot
-ln -s /snap/bin/certbot /usr/bin/certbot || true # 이미 존재하면 무시
+apt-get update
+apt-get install certbot python3-certbot-nginx -y
 
 # 2. Nginx 설치
 echo "Installing Nginx..."
