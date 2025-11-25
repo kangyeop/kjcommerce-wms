@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // API 클라이언트 인스턴스 생성
 const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
