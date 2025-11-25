@@ -7,10 +7,10 @@ export class Product extends BaseEntity {
   @Column()
   name: string;
 
-  @Column({ name: 'price_per_unit_yuan', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'price_per_unit_yuan', type: 'float' })
   pricePerUnitYuan: number;
 
-  @Column({ name: 'weight_per_unit', type: 'decimal', precision: 10, scale: 3 })
+  @Column({ name: 'weight_per_unit', type: 'float' })
   weightPerUnit: number;
 
   // Relationships

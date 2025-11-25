@@ -9,12 +9,12 @@ export class ExchangeRate {
   @Column({ name: 'currency_code', length: 10 })
   currencyCode: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({ type: 'float' })
   rate: number;
 
   @Column({ name: 'effective_date', type: 'date' })
   effectiveDate: Date;
 
-  @Column({ name: 'created_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'created_at', type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 }

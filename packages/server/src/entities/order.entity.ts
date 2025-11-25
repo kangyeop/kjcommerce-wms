@@ -14,55 +14,55 @@ export class Order extends BaseEntity {
   quantity: number;
 
   @ApiProperty({ description: '단위당 원가 (위안)', example: 10.50 })
-  @Column({ name: 'original_cost_yuan', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'original_cost_yuan', type: 'float' })
   originalCostYuan: number;
 
   @ApiProperty({ description: '환율', example: 180.50 })
-  @Column({ name: 'exchange_rate', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'exchange_rate', type: 'float' })
   exchangeRate: number;
 
   @ApiProperty({ description: '서비스 수수료 (위안)', example: 5.00 })
-  @Column({ name: 'service_fee_yuan', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'service_fee_yuan', type: 'float' })
   serviceFeeYuan: number;
 
   @ApiProperty({ description: '검수 수수료 (위안)', example: 2.00 })
-  @Column({ name: 'inspection_fee_yuan', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'inspection_fee_yuan', type: 'float' })
   inspectionFeeYuan: number;
 
   @ApiProperty({ description: '포장 수수료 (위안)', example: 1.50 })
-  @Column({ name: 'packaging_fee_yuan', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'packaging_fee_yuan', type: 'float' })
   packagingFeeYuan: number;
 
   @ApiProperty({ description: '배송비 (원화)', example: 50000 })
-  @Column({ name: 'shipping_fee_krw', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'shipping_fee_krw', type: 'float' })
   shippingFeeKrw: number;
 
   @ApiProperty({ description: '통관 수수료 (원화)', example: 10000 })
-  @Column({ name: 'customs_fee_krw', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'customs_fee_krw', type: 'float' })
   customsFeeKrw: number;
 
   @ApiProperty({ description: '과세 대상 금액 (원화)', example: 100000 })
-  @Column({ name: 'taxable_amount_krw', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'taxable_amount_krw', type: 'float' })
   taxableAmountKrw: number;
 
   @ApiProperty({ description: '관세 (원화)', example: 8000 })
-  @Column({ name: 'duty_krw', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'duty_krw', type: 'float' })
   dutyKrw: number;
 
   @ApiProperty({ description: '부가세 (원화)', example: 10000 })
-  @Column({ name: 'vat_krw', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'vat_krw', type: 'float' })
   vatKrw: number;
 
   @ApiProperty({ description: '총 원가 (원화)', example: 200000 })
-  @Column({ name: 'total_cost_krw', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'total_cost_krw', type: 'float' })
   totalCostKrw: number;
 
   @ApiProperty({ description: '마진율 (%)', example: 30 })
-  @Column({ name: 'margin_rate', type: 'decimal', precision: 5, scale: 2, default: 0 })
+  @Column({ name: 'margin_rate', type: 'float', default: 0 })
   marginRate: number;
 
   @ApiProperty({ description: '판매가격 (원화)', example: 260000 })
-  @Column({ name: 'selling_price_krw', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({ name: 'selling_price_krw', type: 'float', nullable: true })
   sellingPriceKrw: number;
 
   @ApiProperty({ description: '발주일', example: '2024-01-15' })

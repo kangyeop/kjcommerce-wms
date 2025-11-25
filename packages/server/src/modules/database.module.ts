@@ -8,17 +8,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        type: 'mysql',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 3306),
-        username: configService.get<string>('DB_USER', 'kjuser'),
-        password: configService.get<string>('DB_PASSWORD', 'kjpassword'),
-        database: configService.get<string>('DB_NAME', 'kjcommerce'),
+        type: 'better-sqlite3', // "sqlite" 대신 "better-sqlite3" 사용
+        database: 'database.sqlite',
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-        synchronize: configService.get<boolean>('DB_SYNCHRONIZE', true),
+        synchronize: true,
         logging: configService.get<string>('NODE_ENV') === 'development',
-        charset: 'utf8mb4',
-        timezone: '+09:00', // 한국 시간대 설정
+        dropSchema: true,
       }),
     }),
   ],
