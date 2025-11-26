@@ -19,13 +19,27 @@ const ProductRegistrationPage = () => {
   
   // 제품 생성 뮤테이션
   const createProductMutation = useMutation({
-    mutationFn: (newProduct: { name: string; pricePerUnitYuan: number; weightPerUnit: number }) =>
+    mutationFn: (newProduct: { 
+      name: string; 
+      pricePerUnitYuan: number; 
+      weightPerUnit: number;
+      productUrl?: string;
+      options?: string;
+      unitsPerPackage?: number;
+    }) =>
       productService.create(newProduct),
     onSuccess: () => {
       // 제품 생성 성공 시 제품 목록 재조회
       queryClient.invalidateQueries({ queryKey: ['products'] });
       // 폼 초기화
-      setFormData({ name: '', pricePerUnitYuan: '', weightPerUnit: '' });
+      setFormData({ 
+        name: '', 
+        pricePerUnitYuan: '', 
+        weightPerUnit: '',
+        productUrl: '',
+        options: '',
+        unitsPerPackage: '1'
+      });
     },
   });
 
@@ -33,9 +47,12 @@ const ProductRegistrationPage = () => {
     name: '',
     pricePerUnitYuan: '',
     weightPerUnit: '',
+    productUrl: '',
+    options: '',
+    unitsPerPackage: '1',
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -51,6 +68,9 @@ const ProductRegistrationPage = () => {
       name: formData.name,
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
+      unitsPerPackage: parseInt(formData.unitsPerPackage) || 1,
+      ...(formData.productUrl && { productUrl: formData.productUrl }),
+      ...(formData.options && { options: formData.options }),
     };
 
     // API를 통해 제품 생성
@@ -110,6 +130,48 @@ const ProductRegistrationPage = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="productUrl">상품 URL</Label>
+                <Input 
+                  id="productUrl"
+                  name="productUrl"
+                  type="url"
+                  value={formData.productUrl}
+                  onChange={handleChange}
+                  placeholder="상품 원본 URL을 입력하세요 (선택사항)"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="options">옵션 정보</Label>
+                <textarea
+                  id="options"
+                  name="options"
+                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={formData.options}
+                  onChange={handleChange}
+                  placeholder="옵션 정보를 입력하세요 (예: 색상: 블랙, 사이즈: L)"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="unitsPerPackage">묶음 판매 수량</Label>
+                <Input 
+                  id="unitsPerPackage"
+                  name="unitsPerPackage"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.unitsPerPackage}
+                  onChange={handleChange}
+                  placeholder="묶음으로 판매할 개수 (기본: 1개)"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  예: 2개 묶음으로 판매하면 2 입력
+                </p>
+              </div>
+
               <Button type="submit" className="w-full">등록하기</Button>
             </form>
           </CardContent>
@@ -123,13 +185,16 @@ const ProductRegistrationPage = () => {
             {products.length === 0 ? (
               <p className="text-center text-muted-foreground py-6">등록된 제품이 없습니다.</p>
             ) : (
-              <div className="border rounded-md">
+              <div className="border rounded-md overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
                       <th className="px-4 py-2 text-left">제품명</th>
                       <th className="px-4 py-2 text-right">개당 가격 (위안)</th>
                       <th className="px-4 py-2 text-right">개당 무게</th>
+                      <th className="px-4 py-2 text-center">묶음 수량</th>
+                      <th className="px-4 py-2 text-left">상품 URL</th>
+                      <th className="px-4 py-2 text-left">옵션</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -138,6 +203,28 @@ const ProductRegistrationPage = () => {
                         <td className="px-4 py-2">{product.name}</td>
                         <td className="px-4 py-2 text-right">{product.pricePerUnitYuan.toLocaleString()} 위안</td>
                         <td className="px-4 py-2 text-right">{product.weightPerUnit.toLocaleString()} kg</td>
+                        <td className="px-4 py-2 text-center">{product.unitsPerPackage || 1}개</td>
+                        <td className="px-4 py-2">
+                          {product.productUrl ? (
+                            <a 
+                              href={product.productUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline text-sm"
+                            >
+                              링크 보기
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {product.options ? (
+                            <span className="text-sm">{product.options}</span>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

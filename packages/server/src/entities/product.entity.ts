@@ -13,6 +13,15 @@ export class Product extends BaseEntity {
   @Column({ name: 'weight_per_unit', type: 'float' })
   weightPerUnit: number;
 
+  @Column({ name: 'product_url', type: 'text', nullable: true })
+  productUrl: string;
+
+  @Column({ type: 'text', nullable: true })
+  options: string;
+
+  @Column({ name: 'units_per_package', type: 'int', default: 1 })
+  unitsPerPackage: number;
+
   // Relationships
   @OneToMany(() => Order, (order) => order.product)
   orders: Order[];

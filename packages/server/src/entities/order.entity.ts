@@ -61,6 +61,18 @@ export class Order extends BaseEntity {
   @Column({ name: 'margin_rate', type: 'float', default: 0 })
   marginRate: number;
 
+  @ApiProperty({ description: 'ROAS (광고비 비율 %)', example: 20 })
+  @Column({ type: 'float', default: 0 })
+  roas: number;
+
+  @ApiProperty({ description: '실제 배송비 (원화)', example: 3000 })
+  @Column({ name: 'actual_shipping_fee_krw', type: 'float', default: 0 })
+  actualShippingFeeKrw: number;
+
+  @ApiProperty({ description: '온라인 판매점 수수료율 (%)', example: 10 })
+  @Column({ name: 'marketplace_commission_rate', type: 'float', default: 10 })
+  marketplaceCommissionRate: number;
+
   @ApiProperty({ description: '판매가격 (원화)', example: 260000 })
   @Column({ name: 'selling_price_krw', type: 'float', nullable: true })
   sellingPriceKrw: number;

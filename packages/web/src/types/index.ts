@@ -4,6 +4,9 @@ export interface Product {
   name: string;
   pricePerUnitYuan: number;
   weightPerUnit: number;
+  productUrl?: string;
+  options?: string;
+  unitsPerPackage?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +38,9 @@ export interface Order {
   vatKrw: number;
   totalCostKrw: number;
   marginRate: number;
+  roas: number;
+  actualShippingFeeKrw: number;
+  marketplaceCommissionRate: number;
   sellingPriceKrw: number;
   orderDate: string;
   createdAt: string;
@@ -66,6 +72,9 @@ export interface CreateOrderDto {
   vatKrw: number;
   totalCostKrw: number;
   marginRate?: number;
+  roas?: number;
+  actualShippingFeeKrw?: number;
+  marketplaceCommissionRate?: number;
   orderDate: string;
 }
 

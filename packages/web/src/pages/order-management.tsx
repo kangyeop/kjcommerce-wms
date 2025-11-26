@@ -54,6 +54,9 @@ const OrderManagementPage = () => {
     vatKrw: 0,
     totalCostKrw: 0,
     marginRate: 30,
+    roas: 20,
+    actualShippingFeeKrw: 3000,
+    marketplaceCommissionRate: 10,
     orderDate: new Date().toISOString().split('T')[0]
   })
   
@@ -73,25 +76,57 @@ const OrderManagementPage = () => {
       vatKrw: 0,
       totalCostKrw: 0,
       marginRate: 30,
+      roas: 20,
+      actualShippingFeeKrw: 3000,
+      marketplaceCommissionRate: 10,
       orderDate: new Date().toISOString().split('T')[0]
     })
   }
   
-  // 제품 선택 시 원가 자동 계산
+  // 제품 선택 시 원가 및 구매대행 수수료 자동 계산
   useEffect(() => {
     if (formData.productId && formData.quantity) {
       const selectedProduct = products.find(p => p.id === formData.productId)
       if (selectedProduct) {
         const originalCost = selectedProduct.pricePerUnitYuan * formData.quantity
+        
+        // 구매대행 수수료 계산
+        let serviceFee = 0
+        if (originalCost < 500) {
+          serviceFee = 30
+        } else if (originalCost < 1000) {
+          serviceFee = 50
+        } else {
+          serviceFee = originalCost * 0.05
+        }
+        
         setFormData(prev => ({
           ...prev,
           originalCostYuan: originalCost,
+          serviceFeeYuan: serviceFee,
           inspectionFeeYuan: originalCost * 0.02, // 검품비 2%
           packagingFeeYuan: 0.3 // 포장비 고정
         }))
       }
     }
   }, [formData.productId, formData.quantity, products])
+  
+  // 과세가격, 관세, 부가세 자동 계산
+  useEffect(() => {
+    const productPriceKrw = formData.originalCostYuan * formData.exchangeRate
+    const taxableShipping = formData.shippingFeeKrw
+    const taxableAmount = Math.round(productPriceKrw + taxableShipping)
+    
+    const duty = Math.round(taxableAmount * 0.08)
+    const vat = Math.round((taxableAmount + duty) * 0.10)
+    
+    setFormData(prev => ({
+      ...prev,
+      taxableAmountKrw: taxableAmount,
+      dutyKrw: duty,
+      vatKrw: vat
+    }))
+  }, [formData.originalCostYuan, formData.exchangeRate, formData.shippingFeeKrw])
   
   // 총 원가 자동 계산
   useEffect(() => {
@@ -131,9 +166,30 @@ const OrderManagementPage = () => {
     }
   }
   
-  // 판매가격 계산
-  const calculateSellingPrice = (totalCost: number, marginRate: number) => {
-    return Math.round(totalCost + (totalCost * marginRate / 100))
+  // 판매가격 계산 (묶음 판매 고려)
+  const calculateSellingPrice = (
+    totalCost: number, 
+    marginRate: number, 
+    roas: number,
+    actualShippingFee: number,
+    marketplaceCommissionRate: number,
+    unitsPerPackage: number,
+    quantity: number
+  ) => {
+    if (quantity === 0 || unitsPerPackage === 0) return 0
+    
+    const costPerPackage = totalCost / (quantity / unitsPerPackage)
+    const desiredMargin = costPerPackage * (marginRate / 100)
+    
+    const roasDecimal = roas / 100
+    const commissionDecimal = marketplaceCommissionRate / 100
+    
+    const numerator = costPerPackage + desiredMargin + actualShippingFee
+    const denominator = 1 - commissionDecimal - roasDecimal
+    
+    if (denominator <= 0) return 0
+    
+    return Math.round(numerator / denominator)
   }
 
   return (
@@ -161,7 +217,7 @@ const OrderManagementPage = () => {
                   <option value={0}>제품 선택</option>
                   {products.map(product => (
                     <option key={product.id} value={product.id}>
-                      {product.name} - {product.pricePerUnitYuan}위안
+                      {product.name} - {product.pricePerUnitYuan.toLocaleString()}위안
                     </option>
                   ))}
                 </select>
@@ -201,16 +257,12 @@ const OrderManagementPage = () => {
                 </div>
               </div>
 
-              {/* 서비스 수수료 */}
+              {/* 구매대행 수수료 (자동 계산) */}
               <div className="space-y-2">
-                <Label htmlFor="serviceFeeYuan">서비스 수수료 (위안)</Label>
-                <Input
-                  id="serviceFeeYuan"
-                  type="number"
-                  step="0.01"
-                  value={formData.serviceFeeYuan}
-                  onChange={(e) => setFormData(prev => ({ ...prev, serviceFeeYuan: Number(e.target.value) }))}
-                />
+                <Label>구매대행 수수료 (위안) - 자동계산</Label>
+                <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  {formData.serviceFeeYuan.toLocaleString()}
+                </div>
               </div>
 
               {/* 배송비 */}
@@ -224,26 +276,28 @@ const OrderManagementPage = () => {
                 />
               </div>
 
-              {/* 관세 */}
+              {/* 과세가격 (자동 계산) */}
               <div className="space-y-2">
-                <Label htmlFor="dutyKrw">관세 (원)</Label>
-                <Input
-                  id="dutyKrw"
-                  type="number"
-                  value={formData.dutyKrw}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dutyKrw: Number(e.target.value) }))}
-                />
+                <Label>과세가격 (원) - 자동계산</Label>
+                <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  {formData.taxableAmountKrw.toLocaleString()}
+                </div>
               </div>
 
-              {/* 부가세 */}
+              {/* 관세 (자동 계산) */}
               <div className="space-y-2">
-                <Label htmlFor="vatKrw">부가세 (원)</Label>
-                <Input
-                  id="vatKrw"
-                  type="number"
-                  value={formData.vatKrw}
-                  onChange={(e) => setFormData(prev => ({ ...prev, vatKrw: Number(e.target.value) }))}
-                />
+                <Label>관세 (원) - 자동계산</Label>
+                <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  {formData.dutyKrw.toLocaleString()}
+                </div>
+              </div>
+
+              {/* 부가세 (자동 계산) */}
+              <div className="space-y-2">
+                <Label>부가세 (원) - 자동계산</Label>
+                <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  {formData.vatKrw.toLocaleString()}
+                </div>
               </div>
 
               {/* 총 원가 (자동 계산) */}
@@ -268,9 +322,21 @@ const OrderManagementPage = () => {
 
               {/* 판매가격 (자동 계산) */}
               <div className="space-y-2">
-                <Label>판매가격 (원) - 자동계산</Label>
+                <Label>판매가격 (묶음당, 원) - 자동계산</Label>
                 <div className="flex h-10 w-full rounded-md border-2 border-primary bg-primary/5 px-3 py-2 text-sm font-bold text-primary">
-                  {calculateSellingPrice(formData.totalCostKrw, formData.marginRate || 0).toLocaleString()}
+                  {(() => {
+                    const selectedProduct = products.find(p => p.id === formData.productId)
+                    const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
+                    return calculateSellingPrice(
+                      formData.totalCostKrw, 
+                      formData.marginRate || 0,
+                      formData.roas || 0,
+                      formData.actualShippingFeeKrw || 0,
+                      formData.marketplaceCommissionRate || 0,
+                      unitsPerPackage,
+                      formData.quantity
+                    ).toLocaleString()
+                  })()}
                 </div>
               </div>
 
@@ -330,7 +396,7 @@ const OrderManagementPage = () => {
                     <tr key={order.id} className="border-b hover:bg-muted/50">
                       <td className="p-2">{order.id}</td>
                       <td className="p-2">{order.product?.name || '-'}</td>
-                      <td className="text-right p-2">{order.quantity}</td>
+                      <td className="text-right p-2">{order.quantity.toLocaleString()}</td>
                       <td className="text-right p-2">{order.totalCostKrw.toLocaleString()}원</td>
                       <td className="text-right p-2">{order.marginRate}%</td>
                       <td className="text-right p-2 font-semibold text-primary">
