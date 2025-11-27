@@ -13,7 +13,8 @@
     "build:server": "pnpm --filter @kjcommerce-wms/server build",
     "build:all": "pnpm build && pnpm build:server",
     "preview": "pnpm --filter @kjcommerce-wms/web preview",
-    "start": "pnpm --filter @kjcommerce-wms/server start"
+    "start": "pnpm --filter @kjcommerce-wms/server start",
+    "deploy": "pm2 restart ecosystem.config.js --env production && cp -R packages/web/dist /var/www"
   },
   "engines": {
     "node": ">=18.0.0",
