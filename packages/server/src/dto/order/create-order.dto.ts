@@ -50,12 +50,29 @@ export class CreateOrderDto {
   @Type(() => Number)
   packagingFeeYuan: number;
 
-  @ApiProperty({ description: '배송비 (원화)', example: 50000 })
-  @IsNotEmpty()
+  @ApiProperty({ description: '중국내 배송비 (위안)', example: 10.0, required: false, default: 0 })
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  shippingFeeKrw: number;
+  domesticShippingFeeYuan?: number;
+
+  @ApiProperty({ description: '해외 배송비 (원화)', example: 6000, required: false, default: 0 })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  internationalShippingFeeKrw?: number;
+
+  @ApiProperty({ description: '배송비 (원화) - 총합', example: 50000, required: false })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  shippingFeeKrw?: number;
+
+  @ApiProperty({ description: '기타 비용 (원화)', example: 5000, required: false, default: 0 })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  miscellaneousFeeKrw?: number;
 
   @ApiProperty({ description: '통관 수수료 (원화)', example: 10000 })
   @IsNotEmpty()

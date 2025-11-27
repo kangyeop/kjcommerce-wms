@@ -114,7 +114,7 @@ const OrderManagementPage = () => {
   // 과세가격, 관세, 부가세 자동 계산
   useEffect(() => {
     const productPriceKrw = formData.originalCostYuan * formData.exchangeRate
-    const taxableShipping = formData.shippingFeeKrw
+    const taxableShipping = formData.shippingFeeKrw || 0
     const taxableAmount = Math.round(productPriceKrw + taxableShipping)
     
     const duty = Math.round(taxableAmount * 0.08)
@@ -136,7 +136,7 @@ const OrderManagementPage = () => {
     const packagingFeeKrw = formData.packagingFeeYuan * formData.exchangeRate
     
     const totalCost = originalCostKrw + serviceFeeKrw + inspectionFeeKrw + packagingFeeKrw +
-                      formData.shippingFeeKrw + formData.customsFeeKrw + 
+                      (formData.shippingFeeKrw || 0) + formData.customsFeeKrw + 
                       formData.dutyKrw + formData.vatKrw
     
     setFormData(prev => ({

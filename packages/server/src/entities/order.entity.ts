@@ -33,9 +33,21 @@ export class Order extends BaseEntity {
   @Column({ name: 'packaging_fee_yuan', type: 'float' })
   packagingFeeYuan: number;
 
-  @ApiProperty({ description: '배송비 (원화)', example: 50000 })
+  @ApiProperty({ description: '중국내 배송비 (위안)', example: 10.0 })
+  @Column({ name: 'domestic_shipping_fee_yuan', type: 'float', default: 0 })
+  domesticShippingFeeYuan: number;
+
+  @ApiProperty({ description: '해외 배송비 (원화)', example: 6000 })
+  @Column({ name: 'international_shipping_fee_krw', type: 'float', default: 0 })
+  internationalShippingFeeKrw: number;
+
+  @ApiProperty({ description: '배송비 (원화) - 총합', example: 50000 })
   @Column({ name: 'shipping_fee_krw', type: 'float' })
   shippingFeeKrw: number;
+
+  @ApiProperty({ description: '기타 비용 (원화)', example: 5000 })
+  @Column({ name: 'miscellaneous_fee_krw', type: 'float', default: 0 })
+  miscellaneousFeeKrw: number;
 
   @ApiProperty({ description: '통관 수수료 (원화)', example: 10000 })
   @Column({ name: 'customs_fee_krw', type: 'float' })

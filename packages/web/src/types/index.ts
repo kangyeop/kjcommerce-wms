@@ -31,7 +31,10 @@ export interface Order {
   serviceFeeYuan: number;
   inspectionFeeYuan: number;
   packagingFeeYuan: number;
+  domesticShippingFeeYuan: number;
+  internationalShippingFeeKrw: number;
   shippingFeeKrw: number;
+  miscellaneousFeeKrw: number;
   customsFeeKrw: number;
   taxableAmountKrw: number;
   dutyKrw: number;
@@ -65,7 +68,10 @@ export interface CreateOrderDto {
   serviceFeeYuan: number;
   inspectionFeeYuan: number;
   packagingFeeYuan: number;
-  shippingFeeKrw: number;
+  domesticShippingFeeYuan?: number;
+  internationalShippingFeeKrw?: number;
+  shippingFeeKrw?: number;
+  miscellaneousFeeKrw?: number;
   customsFeeKrw: number;
   taxableAmountKrw: number;
   dutyKrw: number;
