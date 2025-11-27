@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import MainLayout from './components/layout/main-layout'
 import HomePage from './pages/home'
-import ProductRegistrationPage from './pages/product-registration'
+import ProductListPage from './pages/product-list'
+import ProductDetailPage from './pages/product-detail'
+import ProductFormPage from './pages/product-form'
 import OrderListPage from './pages/order-list'
 import OrderFormPage from './pages/order-form'
 import { QueryProvider } from './context/QueryProvider'
@@ -13,7 +15,10 @@ function App() {
         <Routes>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<HomePage />} />
-            <Route path="product-registration" element={<ProductRegistrationPage />} />
+            <Route path="products" element={<ProductListPage />} />
+            <Route path="products/new" element={<ProductFormPage />} />
+            <Route path="products/:id" element={<ProductDetailPage />} />
+            <Route path="products/:id/edit" element={<ProductFormPage />} />
             <Route path="orders" element={<OrderListPage />} />
             <Route path="orders/new" element={<OrderFormPage />} />
             <Route path="orders/:id" element={<OrderFormPage />} />

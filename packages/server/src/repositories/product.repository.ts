@@ -24,7 +24,26 @@ export class ProductRepository {
   async findOneById(id: number): Promise<Product | null> {
     return await this.repository.findOne({
       where: { id },
+    });
+  }
+
+  async countOrdersByProductId(productId: number): Promise<number> {
+    const product = await this.repository.findOne({
+      where: { id: productId },
       relations: ['orders'],
+    });
+    return product?.orders?.length || 0;
+  }
+
+  async findOneWithOrders(id: number): Promise<Product | null> {
+    return await this.repository.findOne({
+      where: { id },
+      relations: ['orders'],
+      order: {
+        orders: {
+          orderDate: 'DESC'
+        }
+      }
     });
   }
 

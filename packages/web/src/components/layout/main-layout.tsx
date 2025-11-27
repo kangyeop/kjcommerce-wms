@@ -10,7 +10,7 @@ const MainLayout = () => {
             <nav>
               <ul className="flex space-x-6">
                 <li><Link to="/" className="hover:text-white/80 transition-colors">홈</Link></li>
-                <li><Link to="/product-registration" className="hover:text-white/80 transition-colors">제품 등록</Link></li>
+                <li><Link to="/products" className="hover:text-white/80 transition-colors">제품 관리</Link></li>
                 <li><Link to="/orders" className="hover:text-white/80 transition-colors">발주 관리</Link></li>
               </ul>
             </nav>

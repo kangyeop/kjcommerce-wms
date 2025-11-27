@@ -13,7 +13,7 @@ const HomePage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
         <Card>
           <CardHeader>
-            <CardTitle>제품 등록</CardTitle>
+            <CardTitle>제품 관리</CardTitle>
             <CardDescription>제품 기본 정보를 관리합니다.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -21,7 +21,7 @@ const HomePage = () => {
           </CardContent>
           <CardFooter>
             <Button asChild className="w-full">
-              <Link to="/product-registration">관리하기</Link>
+              <Link to="/products">관리하기</Link>
             </Button>
           </CardFooter>
         </Card>

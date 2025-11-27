@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
@@ -39,7 +40,13 @@ export class ProductController {
   @ApiOperation({ summary: '특정 제품 조회' })
   @ApiResponse({ status: 200, description: '특정 제품 정보', type: Product })
   @ApiResponse({ status: 404, description: '제품을 찾을 수 없음' })
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<Product> {
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeOrders') includeOrders?: string
+  ): Promise<Product> {
+    if (includeOrders === 'true') {
+      return this.productService.findOneWithOrders(id);
+    }
     return this.productService.findOne(id);
   }
 
