@@ -118,14 +118,14 @@ const OrderFormPage = () => {
         const unitsPerPackage = selectedProduct.unitsPerPackage || 1
         const packagingFee = (formData.quantity / unitsPerPackage) * 0.3
         
-        // 해외배송비 계산: 개당 무게 * 구매수량
+        // 해외배송비 계산: 개당 무게(g) * 구매수량 / 1000 = kg
         // 1kg까지 6000원, 이후 kg당 800원
-        const totalWeight = selectedProduct.weightPerUnit * formData.quantity
+        const totalWeightKg = (selectedProduct.weightPerUnit * formData.quantity) / 1000
         let internationalShipping = 0
-        if (totalWeight <= 1) {
+        if (totalWeightKg <= 1) {
           internationalShipping = 6000
         } else {
-          internationalShipping = 6000 + Math.ceil((totalWeight - 1) * 800)
+          internationalShipping = 6000 + Math.ceil((totalWeightKg - 1) * 800)
         }
         
         // 값이 실제로 변경되었을 때만 업데이트 (무한 루프 방지)
@@ -162,9 +162,10 @@ const OrderFormPage = () => {
   // 과세가격, 관세, 부가세 자동 계산
   useEffect(() => {
     // 과세 가격 = (상품 가격 X 관세청 고시환율) + 과세 운임
-    // 여기서는 관세청 고시환율을 입력된 환율로 사용하고, 과세 운임은 배송비로 가정
+    // 여기서는 관세청 고시환율을 입력된 환율로 사용하고, 과세 운임은 중국내 배송비만 포함 (해외배송비 제외)
     const productPriceKrw = formData.originalCostYuan * formData.exchangeRate
-    const taxableShipping = formData.shippingFeeKrw || 0 // 과세 운임 (배송비 전체를 과세 운임으로 가정)
+    const domesticShippingKrw = (formData.domesticShippingFeeYuan || 0) * formData.exchangeRate
+    const taxableShipping = domesticShippingKrw // 과세 운임 (중국내 배송비만 포함, 해외배송비는 제외)
     const taxableAmount = Math.round(productPriceKrw + taxableShipping)
     
     // 관세 = 과세가격 X 8%
@@ -184,7 +185,7 @@ const OrderFormPage = () => {
         vatKrw: vat
       }))
     }
-  }, [formData.originalCostYuan, formData.exchangeRate, formData.shippingFeeKrw])
+  }, [formData.originalCostYuan, formData.exchangeRate, formData.domesticShippingFeeYuan])
 
   // 총 원가 자동 계산
   useEffect(() => {
@@ -423,8 +424,9 @@ const OrderFormPage = () => {
                   <p className="text-xs text-muted-foreground">
                     {(() => {
                       const selectedProduct = products.find(p => p.id === formData.productId)
-                      const totalWeight = (selectedProduct?.weightPerUnit || 0) * formData.quantity
-                      return `총 무게: ${totalWeight.toFixed(2)}kg | 1kg까지 6000원, 이후 kg당 800원`
+                      const totalWeightG = (selectedProduct?.weightPerUnit || 0) * formData.quantity
+                      const totalWeightKg = totalWeightG / 1000
+                      return `총 무게: ${totalWeightG.toLocaleString()}g (${totalWeightKg.toFixed(2)}kg) | 1kg까지 6000원, 이후 kg당 800원`
                     })()}
                   </p>
                 </div>
@@ -454,7 +456,7 @@ const OrderFormPage = () => {
                     {formData.taxableAmountKrw.toLocaleString()}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    (상품가격 × 환율) + 배송비
+                    (상품가격 × 환율) + 중국내 배송비 (해외배송비 제외)
                   </p>
                 </div>
                 <div className="space-y-2">

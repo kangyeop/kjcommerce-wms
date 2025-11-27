@@ -17,7 +17,7 @@ const HomePage = () => {
             <CardDescription>제품 기본 정보를 관리합니다.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p>각 제품의 개당 가격(위안)과 무게(kg) 정보를 등록하고 관리할 수 있습니다.</p>
+            <p>각 제품의 개당 가격(위안)과 무게(g) 정보를 등록하고 관리할 수 있습니다.</p>
           </CardContent>
           <CardFooter>
             <Button asChild className="w-full">

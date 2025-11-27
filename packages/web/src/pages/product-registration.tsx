@@ -43,6 +43,32 @@ const ProductRegistrationPage = () => {
     },
   });
 
+  // 제품 수정 뮤테이션
+  const updateProductMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      productService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      setEditingProduct(null);
+      setFormData({ 
+        name: '', 
+        pricePerUnitYuan: '', 
+        weightPerUnit: '',
+        productUrl: '',
+        options: '',
+        unitsPerPackage: '1'
+      });
+    },
+  });
+
+  // 제품 삭제 뮤테이션
+  const deleteProductMutation = useMutation({
+    mutationFn: (id: number) => productService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     pricePerUnitYuan: '',
@@ -51,6 +77,8 @@ const ProductRegistrationPage = () => {
     options: '',
     unitsPerPackage: '1',
   });
+
+  const [editingProduct, setEditingProduct] = useState<number | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -64,7 +92,7 @@ const ProductRegistrationPage = () => {
       return;
     }
 
-    const newProduct = {
+    const productData = {
       name: formData.name,
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
@@ -73,8 +101,45 @@ const ProductRegistrationPage = () => {
       ...(formData.options && { options: formData.options }),
     };
 
-    // API를 통해 제품 생성
-    createProductMutation.mutate(newProduct);
+    if (editingProduct) {
+      // 수정 모드
+      updateProductMutation.mutate({ id: editingProduct, data: productData });
+    } else {
+      // 생성 모드
+      createProductMutation.mutate(productData);
+    }
+  };
+
+  const handleEdit = (product: any) => {
+    setEditingProduct(product.id);
+    setFormData({
+      name: product.name,
+      pricePerUnitYuan: product.pricePerUnitYuan.toString(),
+      weightPerUnit: product.weightPerUnit.toString(),
+      productUrl: product.productUrl || '',
+      options: product.options || '',
+      unitsPerPackage: (product.unitsPerPackage || 1).toString(),
+    });
+    // 폼으로 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingProduct(null);
+    setFormData({ 
+      name: '', 
+      pricePerUnitYuan: '', 
+      weightPerUnit: '',
+      productUrl: '',
+      options: '',
+      unitsPerPackage: '1'
+    });
+  };
+
+  const handleDelete = (id: number) => {
+    if (window.confirm('정말로 이 제품을 삭제하시겠습니까?')) {
+      deleteProductMutation.mutate(id);
+    }
   };
 
   return (
@@ -84,7 +149,7 @@ const ProductRegistrationPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>제품 정보 등록</CardTitle>
+            <CardTitle>{editingProduct ? '제품 정보 수정' : '제품 정보 등록'}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -172,7 +237,16 @@ const ProductRegistrationPage = () => {
                 </p>
               </div>
 
-              <Button type="submit" className="w-full">등록하기</Button>
+              <div className="flex gap-2">
+                <Button type="submit" className="flex-1">
+                  {editingProduct ? '수정하기' : '등록하기'}
+                </Button>
+                {editingProduct && (
+                  <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                    취소
+                  </Button>
+                )}
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -195,6 +269,7 @@ const ProductRegistrationPage = () => {
                       <th className="px-4 py-2 text-center">묶음 수량</th>
                       <th className="px-4 py-2 text-left">상품 URL</th>
                       <th className="px-4 py-2 text-left">옵션</th>
+                      <th className="px-4 py-2 text-center">작업</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -224,6 +299,24 @@ const ProductRegistrationPage = () => {
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEdit(product)}
+                            >
+                              수정
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDelete(product.id)}
+                            >
+                              삭제
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
