@@ -96,6 +96,19 @@ const OrderFormPage = () => {
     }
   })
 
+  // 발주 삭제 mutation
+  const deleteOrderMutation = useMutation({
+    mutationFn: () => orderService.delete(Number(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      navigate('/orders')
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || '발주 삭제 중 오류가 발생했습니다.'
+      alert(errorMessage)
+    }
+  })
+
   // 제품 선택 시 원가, 구매대행 수수료, 포장비, 해외배송비 자동 계산
   useEffect(() => {
     if (formData.productId && formData.quantity) {
@@ -228,6 +241,12 @@ const OrderFormPage = () => {
     }
   }
 
+  const handleDelete = () => {
+    if (window.confirm('정말로 이 발주를 삭제하시겠습니까?')) {
+      deleteOrderMutation.mutate()
+    }
+  }
+
   // 판매가격 계산 (묶음 판매 고려)
   const calculateSellingPrice = (
     totalCost: number, 
@@ -276,9 +295,20 @@ const OrderFormPage = () => {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{isEditMode ? '발주 수정' : '새 발주 등록'}</h1>
-        <Button variant="outline" onClick={() => navigate('/orders')}>
-          목록으로 돌아가기
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/orders')}>
+            목록으로 돌아가기
+          </Button>
+          {isEditMode && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete}
+              disabled={deleteOrderMutation.isPending}
+            >
+              {deleteOrderMutation.isPending ? '삭제 중...' : '삭제'}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
