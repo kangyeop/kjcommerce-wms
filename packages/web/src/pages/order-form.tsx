@@ -48,6 +48,9 @@ const OrderFormPage = () => {
     orderDate: new Date().toISOString().split('T')[0]
   })
 
+  // 판매가격 입력을 위한 별도 상태
+  const [manualSellingPrice, setManualSellingPrice] = useState<number | null>(null)
+
   // 기존 데이터 로드
   useEffect(() => {
     if (existingOrder) {
@@ -132,13 +135,13 @@ const OrderFormPage = () => {
         const packagingFee = (formData.quantity / unitsPerPackage) * 0.3
         
         // 해외배송비 계산: 개당 무게(g) * 구매수량 / 1000 = kg
-        // 1kg까지 6000원, 이후 kg당 800원
+        // 1kg까지 6000원, 이후 kg당 1600원
         const totalWeightKg = (selectedProduct.weightPerUnit * formData.quantity) / 1000
         let internationalShipping = 0
         if (totalWeightKg <= 1) {
           internationalShipping = 6000
         } else {
-          internationalShipping = 6000 + Math.ceil((totalWeightKg - 1) * 800)
+          internationalShipping = 6000 + Math.ceil((totalWeightKg - 1) * 1600)
         }
         
         // 값이 실제로 변경되었을 때만 업데이트 (무한 루프 방지)
@@ -174,12 +177,9 @@ const OrderFormPage = () => {
 
   // 과세가격, 관세, 부가세 자동 계산
   useEffect(() => {
-    // 과세 가격 = (상품 가격 X 관세청 고시환율) + 과세 운임
-    // 여기서는 관세청 고시환율을 입력된 환율로 사용하고, 과세 운임은 중국내 배송비만 포함 (해외배송비 제외)
+    // 과세 가격 = 상품 가격 X 관세청 고시환율 (배송비 제외)
     const productPriceKrw = formData.originalCostYuan * formData.exchangeRate
-    const domesticShippingKrw = (formData.domesticShippingFeeYuan || 0) * formData.exchangeRate
-    const taxableShipping = domesticShippingKrw // 과세 운임 (중국내 배송비만 포함, 해외배송비는 제외)
-    const taxableAmount = Math.round(productPriceKrw + taxableShipping)
+    const taxableAmount = Math.round(productPriceKrw)
     
     // 관세 = 과세가격 X 8%
     const duty = Math.round(taxableAmount * 0.08)
@@ -198,7 +198,7 @@ const OrderFormPage = () => {
         vatKrw: vat
       }))
     }
-  }, [formData.originalCostYuan, formData.exchangeRate, formData.domesticShippingFeeYuan])
+  }, [formData.originalCostYuan, formData.exchangeRate])
 
   // 총 원가 자동 계산
   useEffect(() => {
@@ -247,46 +247,36 @@ const OrderFormPage = () => {
     }
   }
 
-  // 판매가격 계산 (묶음 판매 고려)
-  const calculateSellingPrice = (
-    totalCost: number, 
-    marginRate: number, 
-    roas: number,
-    actualShippingFee: number,
-    marketplaceCommissionRate: number,
-    unitsPerPackage: number
-  ) => {
-    // 묶음당 원가 (총 원가 / 묶음 수량)
-    const costPerPackage = totalCost / (formData.quantity / unitsPerPackage)
+  // 판매가격 변경 시 마진율 역계산
+  const handleSellingPriceChange = (sellingPrice: number) => {
+    setManualSellingPrice(sellingPrice)
     
-    // 원하는 마진
-    const desiredMargin = costPerPackage * (marginRate / 100)
+    const selectedProduct = products.find(p => p.id === formData.productId)
+    const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
+    const packageCount = formData.quantity / unitsPerPackage
+    const costPerPackage = packageCount > 0 ? formData.totalCostKrw / packageCount : 0
     
-    // 역산 공식 (ROAS는 배수로 계산):
-    // 판매가 = (원가 + 마진 + 광고비 + 배송비) / (1 - 수수료율)
-    // 광고비 = 판매가 / ROAS (ROAS가 2배면 광고비는 판매가의 1/2)
-    // 수수료 = 판매가 * 수수료율
+    if (costPerPackage === 0) return
     
-    // 판매가를 x라고 하면:
-    // x = (원가 + 마진 + x/ROAS + 배송비) / (1 - 수수료율)
-    // x * (1 - 수수료율) = 원가 + 마진 + x/ROAS + 배송비
-    // x * (1 - 수수료율 - 1/ROAS) = 원가 + 마진 + 배송비
-    // x = (원가 + 마진 + 배송비) / (1 - 수수료율 - 1/ROAS)
+    const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
+    const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
     
-    const roasMultiplier = roas > 0 ? (1 / roas) : 0
-    const commissionDecimal = marketplaceCommissionRate / 100
+    // 역산: sellingPrice = (costPerPackage + shipping) / (1 - margin - commission - roasMultiplier)
+    // sellingPrice * (1 - margin - commission - roasMultiplier) = costPerPackage + shipping
+    // sellingPrice * (1 - commission - roasMultiplier) - sellingPrice * margin = costPerPackage + shipping
+    // sellingPrice * margin = sellingPrice * (1 - commission - roasMultiplier) - costPerPackage - shipping
+    // margin = (sellingPrice * (1 - commission - roasMultiplier) - costPerPackage - shipping) / sellingPrice
     
-    const numerator = costPerPackage + desiredMargin + actualShippingFee
-    const denominator = 1 - commissionDecimal - roasMultiplier
+    const profit = sellingPrice * (1 - commissionDecimal - roasMultiplier) - costPerPackage - (formData.actualShippingFeeKrw || 0)
+    const marginRate = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0
     
-    if (denominator <= 0) {
-      // 수수료율 + 1/ROAS가 100% 이상이면 판매 불가
-      return 0
-    }
-    
-    const sellingPrice = numerator / denominator
-    
-    return Math.round(sellingPrice)
+    setFormData(prev => ({ ...prev, marginRate: Math.max(0, marginRate) }))
+  }
+
+  // 마진율 변경 시 수동 판매가격 초기화
+  const handleMarginRateChange = (marginRate: number) => {
+    setManualSellingPrice(null)
+    setFormData(prev => ({ ...prev, marginRate }))
   }
 
   const isPending = createOrderMutation.isPending || updateOrderMutation.isPending
@@ -456,7 +446,7 @@ const OrderFormPage = () => {
                       const selectedProduct = products.find(p => p.id === formData.productId)
                       const totalWeightG = (selectedProduct?.weightPerUnit || 0) * formData.quantity
                       const totalWeightKg = totalWeightG / 1000
-                      return `총 무게: ${totalWeightG.toLocaleString()}g (${totalWeightKg.toFixed(2)}kg) | 1kg까지 6000원, 이후 kg당 800원`
+                      return `총 무게: ${totalWeightG.toLocaleString()}g (${totalWeightKg.toFixed(2)}kg) | 1kg까지 6000원, 이후 kg당 1600원`
                     })()}
                   </p>
                 </div>
@@ -486,7 +476,7 @@ const OrderFormPage = () => {
                     {formData.taxableAmountKrw.toLocaleString()}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    (상품가격 × 환율) + 중국내 배송비 (해외배송비 제외)
+                    상품가격 × 환율
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -609,8 +599,29 @@ const OrderFormPage = () => {
                     type="number"
                     step="0.1"
                     value={formData.marginRate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marginRate: Number(e.target.value) }))}
+                    onChange={(e) => handleMarginRateChange(Number(e.target.value))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {manualSellingPrice ? '⚠️ 판매가격 직접 입력 중' : '✓ 마진율로 계산'}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="manualSellingPrice">판매가격 직접 입력 (원)</Label>
+                  <Input
+                    id="manualSellingPrice"
+                    type="number"
+                    placeholder="마진율로 자동 계산됨"
+                    value={manualSellingPrice || ''}
+                    onChange={(e) => {
+                      const value = e.target.value ? Number(e.target.value) : null
+                      if (value) handleSellingPriceChange(value)
+                      else setManualSellingPrice(null)
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    판매가격 입력 시 마진율 자동 계산
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -632,7 +643,7 @@ const OrderFormPage = () => {
                   <Input
                     id="actualShippingFeeKrw"
                     type="number"
-                    value={formData.actualShippingFeeKrw}
+                    value={formData.actualShippingFeeKrw || 0}
                     onChange={(e) => setFormData(prev => ({ ...prev, actualShippingFeeKrw: Number(e.target.value) }))}
                   />
                 </div>
@@ -647,32 +658,152 @@ const OrderFormPage = () => {
                     onChange={(e) => setFormData(prev => ({ ...prev, marketplaceCommissionRate: Number(e.target.value) }))}
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>판매가격 (묶음당, 원)</Label>
-                  <div className="flex h-10 w-full rounded-md border-2 border-primary bg-primary/5 px-3 py-2 text-lg font-bold text-primary">
-                    {(() => {
-                      const selectedProduct = products.find(p => p.id === formData.productId)
-                      const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
-                      return calculateSellingPrice(
-                        formData.totalCostKrw, 
-                        formData.marginRate || 0,
-                        formData.roas || 0,
-                        formData.actualShippingFeeKrw || 0,
-                        formData.marketplaceCommissionRate || 0,
-                        unitsPerPackage
-                      ).toLocaleString()
-                    })()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {(() => {
-                      const selectedProduct = products.find(p => p.id === formData.productId)
-                      const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
-                      return unitsPerPackage > 1 ? `${unitsPerPackage}개 묶음 기준` : '개당 가격'
-                    })()}
-                  </p>
-                </div>
               </div>
+            </div>
+
+            {/* 판매가격 계산 상세 */}
+            <div className="border-2 border-primary/20 p-6 rounded-md bg-gradient-to-br from-blue-50 to-indigo-50">
+              <h3 className="font-bold text-xl mb-4 text-primary">📊 판매가격 계산 상세</h3>
+              {(() => {
+                const selectedProduct = products.find(p => p.id === formData.productId)
+                const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
+                const packageCount = formData.quantity / unitsPerPackage
+                const costPerPackage = packageCount > 0 ? formData.totalCostKrw / packageCount : 0
+                const marginDecimal = (formData.marginRate || 0) / 100
+                const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
+                const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
+                
+                // 판매가 기준 마진율 공식:
+                // 판매가 = (원가 + 배송비) / (1 - 마진율 - 수수료율 - 1/ROAS)
+                const numerator = costPerPackage + (formData.actualShippingFeeKrw || 0)
+                const denominator = 1 - marginDecimal - commissionDecimal - roasMultiplier
+                
+                // 수동 입력된 판매가격이 있으면 사용, 없으면 계산
+                const calculatedSellingPrice = denominator > 0 ? Math.round(numerator / denominator) : 0
+                const sellingPrice = manualSellingPrice || calculatedSellingPrice
+                
+                const adCost = sellingPrice * roasMultiplier
+                const commission = sellingPrice * commissionDecimal
+                const profit = sellingPrice - costPerPackage - (formData.actualShippingFeeKrw || 0) - adCost - commission
+
+                return (
+                  <div className="space-y-4">
+                    {/* 기본 정보 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-xs text-muted-foreground mb-1">묶음 판매 단위</p>
+                        <p className="font-semibold text-lg">{unitsPerPackage}개</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-xs text-muted-foreground mb-1">총 묶음 수량</p>
+                        <p className="font-semibold text-lg">{packageCount.toLocaleString()}묶음</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-xs text-muted-foreground mb-1">묶음당 원가</p>
+                        <p className="font-semibold text-lg text-blue-600">{costPerPackage.toLocaleString()}원</p>
+                      </div>
+                    </div>
+
+                    {/* 계산 과정 */}
+                    {/* 계산 과정 */}
+                    <div className="bg-white p-4 rounded border-2 border-blue-200">
+                      <h4 className="font-semibold mb-3 text-blue-900">
+                        {manualSellingPrice ? '💡 마진율 역산 공식 (판매가 대비)' : '💡 판매가 계산 공식 (판매가 기준 마진)'}
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        {manualSellingPrice ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">마진율</span>
+                              <span>=</span>
+                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">((판매가 - 각종 비용) / 판매가) * 100</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>=</span>
+                              <span>(({sellingPrice.toLocaleString()} - {(costPerPackage + (formData.actualShippingFeeKrw || 0) + adCost + commission).toLocaleString()}) / {sellingPrice.toLocaleString()}) * 100</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>=</span>
+                              <span>({profit.toLocaleString()} / {sellingPrice.toLocaleString()}) * 100</span>
+                              <span>=</span>
+                              <span className="font-bold text-blue-600">{sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(1) : 0}%</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">판매가</span>
+                              <span>=</span>
+                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">(묶음당 원가 + 배송비)</span>
+                              <span>/</span>
+                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">(1 - 마진율 - 수수료율 - 1/ROAS)</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>=</span>
+                              <span>({costPerPackage.toLocaleString()} + {(formData.actualShippingFeeKrw || 0).toLocaleString()})</span>
+                              <span>/</span>
+                              <span>(1 - {marginDecimal.toFixed(2)} - {commissionDecimal.toFixed(2)} - {roasMultiplier.toFixed(2)})</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>=</span>
+                              <span>{numerator.toLocaleString()}</span>
+                              <span>/</span>
+                              <span>{denominator.toFixed(3)}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 최종 결과 */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-lg text-white">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm opacity-90 mb-1">최종 판매가격 (묶음당)</p>
+                          <p className="text-4xl font-bold">{sellingPrice.toLocaleString()}원</p>
+                          <p className="text-xs opacity-75 mt-1">
+                            {unitsPerPackage > 1 ? `${unitsPerPackage}개 묶음 기준` : '개당 가격'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm opacity-90 mb-1">예상 순이익</p>
+                          <p className="text-2xl font-bold text-green-300">{profit.toLocaleString()}원</p>
+                          <p className="text-xs opacity-75 mt-1">
+                            마진율: {sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(1) : 0}%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 비용 분해 */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="bg-white p-3 rounded border border-gray-200">
+                        <p className="text-xs text-muted-foreground mb-1">묶음당 원가</p>
+                        <p className="font-semibold text-blue-600">{costPerPackage.toLocaleString()}원</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-gray-200">
+                        <p className="text-xs text-muted-foreground mb-1">배송비</p>
+                        <p className="font-semibold text-orange-600">{(formData.actualShippingFeeKrw || 0).toLocaleString()}원</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-gray-200">
+                        <p className="text-xs text-muted-foreground mb-1">광고비</p>
+                        <p className="font-semibold text-purple-600">{Math.round(adCost).toLocaleString()}원</p>
+                        <p className="text-xs text-muted-foreground">({(roasMultiplier * 100).toFixed(1)}%)</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-gray-200">
+                        <p className="text-xs text-muted-foreground mb-1">판매 수수료</p>
+                        <p className="font-semibold text-red-600">{Math.round(commission).toLocaleString()}원</p>
+                        <p className="text-xs text-muted-foreground">({formData.marketplaceCommissionRate}%)</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border-2 border-green-300">
+                        <p className="text-xs text-muted-foreground mb-1">순이익</p>
+                        <p className="font-bold text-green-600">{Math.round(profit).toLocaleString()}원</p>
+                        <p className="text-xs text-muted-foreground">({sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(1) : 0}%)</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="flex justify-end gap-2">
