@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { productService } from '@/services'
+import apiClient from '@/services/api'
 
 interface ProductWithOrders {
   id: number
@@ -30,9 +31,8 @@ const ProductDetailPage = () => {
   const { data: product, isLoading } = useQuery<ProductWithOrders>({
     queryKey: ['product', id, 'withOrders'],
     queryFn: async () => {
-      const response = await fetch(`http://localhost:3000/api/products/${id}?includeOrders=true`)
-      if (!response.ok) throw new Error('Failed to fetch product')
-      return response.json()
+      const response = await apiClient.get<ProductWithOrders>(`/products/${id}?includeOrders=true`)
+      return response.data
     },
     enabled: !!id
   })
