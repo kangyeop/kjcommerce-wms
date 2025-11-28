@@ -74,6 +74,12 @@ export class CreateOrderDto {
   @Type(() => Number)
   miscellaneousFeeKrw?: number;
 
+  @ApiProperty({ description: '보관료 (원화)', example: 10000, required: false, default: 0 })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  storageFeeKrw?: number;
+
   @ApiProperty({ description: '통관 수수료 (원화)', example: 10000 })
   @IsNotEmpty()
   @IsNumber()

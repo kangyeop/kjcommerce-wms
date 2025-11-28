@@ -1,62 +1,78 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { productService } from '@/services'
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { productService } from '@/services';
+import { Product } from '@/types';
 
 // 로컬 타입 정의는 전역 타입을 사용하기 때문에 제거
 
 const ProductRegistrationPage = () => {
   const queryClient = useQueryClient();
-  
+
   // 제품 목록 조회 쿼리
-  const { data: products = [] } = useQuery({
+  const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: productService.getAll,
   });
-  
+
   // 제품 생성 뮤테이션
   const createProductMutation = useMutation({
-    mutationFn: (newProduct: { 
-      name: string; 
-      pricePerUnitYuan: number; 
+    mutationFn: (newProduct: {
+      name: string;
+      pricePerUnitYuan: number;
       weightPerUnit: number;
+      cbmPerUnit: number;
       productUrl?: string;
       options?: string;
       unitsPerPackage?: number;
-    }) =>
-      productService.create(newProduct),
+    }) => productService.create(newProduct),
     onSuccess: () => {
       // 제품 생성 성공 시 제품 목록 재조회
       queryClient.invalidateQueries({ queryKey: ['products'] });
       // 폼 초기화
-      setFormData({ 
-        name: '', 
-        pricePerUnitYuan: '', 
+      setFormData({
+        name: '',
+        pricePerUnitYuan: '',
         weightPerUnit: '',
+        cbmPerUnit: '',
         productUrl: '',
         options: '',
-        unitsPerPackage: '1'
+        unitsPerPackage: '1',
       });
     },
   });
 
   // 제품 수정 뮤테이션
   const updateProductMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
-      productService.update(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: {
+        name: string;
+        pricePerUnitYuan: number;
+        weightPerUnit: number;
+        cbmPerUnit: number; // Added cbmPerUnit
+        productUrl?: string;
+        options?: string;
+        unitsPerPackage?: number;
+      };
+    }) => productService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setEditingProduct(null);
-      setFormData({ 
-        name: '', 
-        pricePerUnitYuan: '', 
+      setFormData({
+        name: '',
+        pricePerUnitYuan: '',
         weightPerUnit: '',
+        cbmPerUnit: '', // Added cbmPerUnit
         productUrl: '',
         options: '',
-        unitsPerPackage: '1'
+        unitsPerPackage: '1',
       });
     },
   });
@@ -71,8 +87,9 @@ const ProductRegistrationPage = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    pricePerUnitYuan: '',
-    weightPerUnit: '',
+    pricePerUnitYuan: '', // Changed to string
+    weightPerUnit: '', // Changed to string
+    cbmPerUnit: '', // Changed to string
     productUrl: '',
     options: '',
     unitsPerPackage: '1',
@@ -82,12 +99,12 @@ const ProductRegistrationPage = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.pricePerUnitYuan || !formData.weightPerUnit) {
       return;
     }
@@ -96,6 +113,7 @@ const ProductRegistrationPage = () => {
       name: formData.name,
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
+      cbmPerUnit: parseFloat(formData.cbmPerUnit) || 0,
       unitsPerPackage: parseInt(formData.unitsPerPackage) || 1,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
@@ -116,6 +134,7 @@ const ProductRegistrationPage = () => {
       name: product.name,
       pricePerUnitYuan: product.pricePerUnitYuan.toString(),
       weightPerUnit: product.weightPerUnit.toString(),
+      cbmPerUnit: (product.cbmPerUnit || 0).toString(), // Added cbmPerUnit
       productUrl: product.productUrl || '',
       options: product.options || '',
       unitsPerPackage: (product.unitsPerPackage || 1).toString(),
@@ -126,13 +145,14 @@ const ProductRegistrationPage = () => {
 
   const handleCancelEdit = () => {
     setEditingProduct(null);
-    setFormData({ 
-      name: '', 
-      pricePerUnitYuan: '', 
+    setFormData({
+      name: '',
+      pricePerUnitYuan: '',
       weightPerUnit: '',
+      cbmPerUnit: '',
       productUrl: '',
       options: '',
-      unitsPerPackage: '1'
+      unitsPerPackage: '1',
     });
   };
 
@@ -155,7 +175,7 @@ const ProductRegistrationPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">제품명</Label>
-                <Input 
+                <Input
                   id="name"
                   name="name"
                   value={formData.name}
@@ -167,7 +187,7 @@ const ProductRegistrationPage = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="pricePerUnitYuan">개당 가격 (위안)</Label>
-                <Input 
+                <Input
                   id="pricePerUnitYuan"
                   name="pricePerUnitYuan"
                   type="number"
@@ -181,23 +201,38 @@ const ProductRegistrationPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="weightPerUnit">개당 무게 (kg)</Label>
-                <Input 
+                <Label htmlFor="weightPerUnit">개당 무게 (g)</Label>
+                <Input
                   id="weightPerUnit"
-                  name="weightPerUnit"
+                  name="weightPerUnit" // Added name attribute
                   type="number"
                   min="0"
-                  step="0.001"
+                  step="0.01"
                   value={formData.weightPerUnit}
-                  onChange={handleChange}
-                  placeholder="개당 무게를 입력하세요"
+                  onChange={handleChange} // Changed to use handleChange
+                  placeholder="개당 무게를 입력하세요 (g)" // Added placeholder
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cbmPerUnit">개당 부피 (CBM)</Label>
+                <Input
+                  id="cbmPerUnit"
+                  name="cbmPerUnit" // Added name attribute
+                  type="number"
+                  min="0"
+                  step="0.000001"
+                  value={formData.cbmPerUnit}
+                  onChange={handleChange} // Changed to use handleChange
+                  placeholder="개당 부피를 입력하세요 (CBM)" // Added placeholder
                   required
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="productUrl">상품 URL</Label>
-                <Input 
+                <Input
                   id="productUrl"
                   name="productUrl"
                   type="url"
@@ -221,7 +256,7 @@ const ProductRegistrationPage = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="unitsPerPackage">묶음 판매 수량</Label>
-                <Input 
+                <Input
                   id="unitsPerPackage"
                   name="unitsPerPackage"
                   type="number"
@@ -232,9 +267,7 @@ const ProductRegistrationPage = () => {
                   placeholder="묶음으로 판매할 개수 (기본: 1개)"
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  예: 2개 묶음으로 판매하면 2 입력
-                </p>
+                <p className="text-xs text-muted-foreground">예: 2개 묶음으로 판매하면 2 입력</p>
               </div>
 
               <div className="flex gap-2">
@@ -266,6 +299,7 @@ const ProductRegistrationPage = () => {
                       <th className="px-4 py-2 text-left">제품명</th>
                       <th className="px-4 py-2 text-right">개당 가격 (위안)</th>
                       <th className="px-4 py-2 text-right">개당 무게</th>
+                      <th className="px-4 py-2 text-right">개당 부피 (CBM)</th>
                       <th className="px-4 py-2 text-center">묶음 수량</th>
                       <th className="px-4 py-2 text-left">상품 URL</th>
                       <th className="px-4 py-2 text-left">옵션</th>
@@ -276,14 +310,21 @@ const ProductRegistrationPage = () => {
                     {products.map((product) => (
                       <tr key={product.id} className="border-b">
                         <td className="px-4 py-2">{product.name}</td>
-                        <td className="px-4 py-2 text-right">{product.pricePerUnitYuan.toLocaleString()} 위안</td>
-                        <td className="px-4 py-2 text-right">{product.weightPerUnit.toLocaleString()} kg</td>
+                        <td className="px-4 py-2 text-right">
+                          {product.pricePerUnitYuan.toLocaleString()} 위안
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {product.weightPerUnit.toLocaleString()} kg
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {product.cbmPerUnit ? product.cbmPerUnit.toLocaleString() : '-'}
+                        </td>
                         <td className="px-4 py-2 text-center">{product.unitsPerPackage || 1}개</td>
                         <td className="px-4 py-2">
                           {product.productUrl ? (
-                            <a 
-                              href={product.productUrl} 
-                              target="_blank" 
+                            <a
+                              href={product.productUrl}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline text-sm"
                             >
@@ -302,11 +343,7 @@ const ProductRegistrationPage = () => {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-2 justify-center">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEdit(product)}
-                            >
+                            <Button size="sm" variant="outline" onClick={() => handleEdit(product)}>
                               수정
                             </Button>
                             <Button

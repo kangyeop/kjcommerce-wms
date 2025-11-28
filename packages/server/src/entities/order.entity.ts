@@ -49,6 +49,10 @@ export class Order extends BaseEntity {
   @Column({ name: 'miscellaneous_fee_krw', type: 'float', default: 0 })
   miscellaneousFeeKrw: number;
 
+  @ApiProperty({ description: '보관료 (원화)', example: 10000 })
+  @Column({ name: 'storage_fee_krw', type: 'float', default: 0 })
+  storageFeeKrw: number;
+
   @ApiProperty({ description: '통관 수수료 (원화)', example: 10000 })
   @Column({ name: 'customs_fee_krw', type: 'float' })
   customsFeeKrw: number;

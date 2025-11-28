@@ -19,6 +19,12 @@ export class CreateProductDto {
   @Min(0)
   weightPerUnit: number;
 
+  @ApiProperty({ description: '단위당 부피 (CBM)' })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  cbmPerUnit: number;
+
   @ApiProperty({ description: '상품 URL', required: false })
   @IsOptional()
   @IsString()

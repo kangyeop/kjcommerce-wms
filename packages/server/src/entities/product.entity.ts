@@ -13,6 +13,9 @@ export class Product extends BaseEntity {
   @Column({ name: 'weight_per_unit', type: 'float' })
   weightPerUnit: number;
 
+  @Column({ name: 'cbm_per_unit', type: 'float', default: 0 })
+  cbmPerUnit: number;
+
   @Column({ name: 'product_url', type: 'text', nullable: true })
   productUrl: string;
 

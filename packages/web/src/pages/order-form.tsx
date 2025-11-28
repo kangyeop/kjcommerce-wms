@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { orderService, productService } from '@/services'
 import { CreateOrderDto, Product } from '@/types'
+import { calculateStorageFee, StorageFeeOutput } from '@/lib/storage-fee-calculator'
 
 const OrderFormPage = () => {
   const { id } = useParams()
@@ -50,6 +51,13 @@ const OrderFormPage = () => {
 
   // 판매가격 입력을 위한 별도 상태
   const [manualSellingPrice, setManualSellingPrice] = useState<number | null>(null)
+
+  // 보관료 계산을 위한 상태
+  const [storageFeeInputs, setStorageFeeInputs] = useState({
+    maxDays: 365,
+    dailySales: 10
+  })
+  const [storageFeeResult, setStorageFeeResult] = useState<StorageFeeOutput | null>(null)
 
   // 기존 데이터 로드
   useEffect(() => {
@@ -125,6 +133,42 @@ const OrderFormPage = () => {
       alert(errorMessage)
     }
   })
+
+  // 보관료 자동 계산
+  useEffect(() => {
+    if (formData.productId && formData.quantity) {
+      const selectedProduct = products.find(p => p.id === formData.productId)
+      if (selectedProduct && selectedProduct.cbmPerUnit > 0) {
+        const result = calculateStorageFee({
+          maxDays: storageFeeInputs.maxDays,
+          initialQty: formData.quantity,
+          cbmPerUnit: selectedProduct.cbmPerUnit,
+          dailySales: storageFeeInputs.dailySales
+        })
+        setStorageFeeResult(result)
+        
+        // 보관료를 원화로 변환하여 formData 업데이트
+        // 보관료는 위안화 기준이므로 환율 적용 필요 (기준표가 원화인지 위안화인지 확인 필요)
+        // 스펙상 "1,000원/CBM/일" 이므로 원화 기준임. 환율 적용 불필요.
+        const storageFee = Math.round(result.totalCost)
+        
+        if (storageFee !== formData.storageFeeKrw) {
+          setFormData(prev => ({
+            ...prev,
+            storageFeeKrw: storageFee
+          }))
+        }
+      } else {
+        setStorageFeeResult(null)
+        if (formData.storageFeeKrw !== 0) {
+          setFormData(prev => ({
+            ...prev,
+            storageFeeKrw: 0
+          }))
+        }
+      }
+    }
+  }, [formData.productId, formData.quantity, storageFeeInputs, products])
 
   // 제품 선택 시 원가, 구매대행 수수료, 포장비, 해외배송비 자동 계산
   useEffect(() => {
@@ -223,6 +267,7 @@ const OrderFormPage = () => {
     
     const totalCost = originalCostKrw + serviceFeeKrw + inspectionFeeKrw + packagingFeeKrw +
                       (formData.shippingFeeKrw || 0) + (formData.miscellaneousFeeKrw || 0) +
+                      (formData.storageFeeKrw || 0) + // 보관료 추가
                       formData.customsFeeKrw + formData.dutyKrw + formData.vatKrw
     
     const roundedTotalCost = Math.round(totalCost)
@@ -241,6 +286,7 @@ const OrderFormPage = () => {
     formData.packagingFeeYuan,
     formData.shippingFeeKrw,
     formData.miscellaneousFeeKrw,
+    formData.storageFeeKrw, // 의존성 추가
     formData.customsFeeKrw,
     formData.dutyKrw,
     formData.vatKrw
@@ -408,6 +454,58 @@ const OrderFormPage = () => {
                   <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
                     {formData.originalCostYuan.toLocaleString()}
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 보관료 섹션 */}
+            <div className="border p-4 rounded-md bg-orange-50/50">
+              <h3 className="font-semibold text-lg mb-4">보관료 시뮬레이션</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="dailySales">하루 판매 속도 (개/일)</Label>
+                    <Input
+                      id="dailySales"
+                      type="number"
+                      min="1"
+                      value={storageFeeInputs.dailySales}
+                      onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, dailySales: Number(e.target.value) }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxDays">최대 보관 기간 (일)</Label>
+                    <Input
+                      id="maxDays"
+                      type="number"
+                      min="1"
+                      value={storageFeeInputs.maxDays}
+                      onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, maxDays: Number(e.target.value) }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded border shadow-sm">
+                  <h4 className="font-medium mb-2">계산 결과</h4>
+                  {storageFeeResult ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">총 보관료:</span>
+                        <span className="font-bold text-orange-600">{storageFeeResult.totalCost.toLocaleString()}원</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">재고 소진일:</span>
+                        <span className="font-bold">{storageFeeResult.daysToSellout}일</span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
+                        * 제품 CBM: {products.find(p => p.id === formData.productId)?.cbmPerUnit || 0}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm py-4 text-center">
+                      제품을 선택하고 CBM 정보가 있어야 계산됩니다.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -605,6 +703,11 @@ const OrderFormPage = () => {
                   <div className="bg-white p-3 rounded border shadow-sm">
                     <p className="text-xs text-muted-foreground mb-1">기타 비용</p>
                     <p className="font-semibold text-blue-600">{(formData.miscellaneousFeeKrw || 0).toLocaleString()}원</p>
+                  </div>
+
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">보관료 (예상)</p>
+                    <p className="font-semibold text-orange-600">{(formData.storageFeeKrw || 0).toLocaleString()}원</p>
                   </div>
                 </div>
               </div>
