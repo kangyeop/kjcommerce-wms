@@ -89,6 +89,7 @@ export interface CreateOrderDto {
   actualShippingFeeKrw?: number;
   marketplaceCommissionRate?: number;
   orderDate: string;
+  sellingPriceKrw?: number;
 }
 
 // 발주 수정 DTO

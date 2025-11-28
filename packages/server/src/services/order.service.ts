@@ -14,11 +14,16 @@ export class OrderService {
       marginRate: createOrderDto.marginRate || 0,
     });
 
-    // 판매가격 계산
-    order.sellingPriceKrw = this.calculateSellingPrice(
-      order.totalCostKrw,
-      order.marginRate,
-    );
+    // 판매가격 계산 (DTO에 있으면 사용, 없으면 계산 시도)
+    if (createOrderDto.sellingPriceKrw) {
+      order.sellingPriceKrw = createOrderDto.sellingPriceKrw;
+    } else {
+      // Product 정보가 없어서 정확한 계산이 어려울 수 있음. 
+      // 필요하다면 여기서 Product를 조회해야 함.
+      // 일단은 기존 방식(Markup)으로 임시 계산하거나 0으로 설정
+      const margin = order.totalCostKrw * (order.marginRate / 100);
+      order.sellingPriceKrw = Math.round(order.totalCostKrw + margin);
+    }
 
     return this.orderRepository.save(order);
   }
@@ -47,12 +52,13 @@ export class OrderService {
 
     Object.assign(order, updateOrderDto);
 
-    // 마진율이나 총 원가가 변경되면 판매가격 재계산
-    if (updateOrderDto.marginRate !== undefined || updateOrderDto.totalCostKrw !== undefined) {
-      order.sellingPriceKrw = this.calculateSellingPrice(
-        order.totalCostKrw,
-        order.marginRate,
-      );
+    // 판매가격이 DTO에 있으면 사용
+    if (updateOrderDto.sellingPriceKrw !== undefined) {
+      order.sellingPriceKrw = updateOrderDto.sellingPriceKrw;
+    } 
+    // 아니면 재계산 (Product 정보가 필요하므로 findOne에서 로딩된 product 사용)
+    else if (order.product) {
+      order.sellingPriceKrw = this.calculateSellingPrice(order);
     }
 
     return this.orderRepository.save(order);
@@ -64,14 +70,26 @@ export class OrderService {
   }
 
   /**
-   * 판매가격 계산
-   * @param totalCostKrw 총 원가 (원화)
-   * @param marginRate 마진율 (%)
-   * @returns 판매가격 (원화)
+   * 판매가격 계산 (Gross Margin)
+   * 판매가 = (원가 + 배송비) / (1 - 마진율 - 수수료율 - 1/ROAS)
    */
-  calculateSellingPrice(totalCostKrw: number, marginRate: number): number {
-    const margin = totalCostKrw * (marginRate / 100);
-    return Math.round(totalCostKrw + margin);
+  calculateSellingPrice(order: Order): number {
+    if (!order.product) return order.sellingPriceKrw || 0;
+
+    const unitsPerPackage = order.product.unitsPerPackage || 1;
+    const packageCount = order.quantity / unitsPerPackage;
+    const costPerPackage = packageCount > 0 ? order.totalCostKrw / packageCount : 0;
+    
+    const marginDecimal = (order.marginRate || 0) / 100;
+    const roasMultiplier = (order.roas || 0) > 0 ? (1 / (order.roas || 1)) : 0;
+    const commissionDecimal = (order.marketplaceCommissionRate || 0) / 100;
+
+    const numerator = costPerPackage + (order.actualShippingFeeKrw || 0);
+    const denominator = 1 - marginDecimal - commissionDecimal - roasMultiplier;
+
+    if (denominator <= 0) return 0;
+
+    return Math.round(numerator / denominator);
   }
 
   /**

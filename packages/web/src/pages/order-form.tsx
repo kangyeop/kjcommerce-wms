@@ -82,20 +82,34 @@ const OrderFormPage = () => {
 
   // 발주 생성 mutation
   const createOrderMutation = useMutation({
-    mutationFn: orderService.create,
+    mutationFn: (newOrder: CreateOrderDto) => orderService.create({
+      ...newOrder,
+      sellingPriceKrw: sellingPrice // 계산된 판매가격 포함
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       navigate('/orders')
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || '발주 등록 중 오류가 발생했습니다.'
+      alert(errorMessage)
     }
   })
 
   // 발주 수정 mutation
   const updateOrderMutation = useMutation({
-    mutationFn: (data: CreateOrderDto) => orderService.update(Number(id), data),
+    mutationFn: (updatedOrder: CreateOrderDto) => orderService.update(Number(id), {
+      ...updatedOrder,
+      sellingPriceKrw: sellingPrice // 계산된 판매가격 포함
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['order', id] })
       navigate('/orders')
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || '발주 수정 중 오류가 발생했습니다.'
+      alert(errorMessage)
     }
   })
 
@@ -278,6 +292,25 @@ const OrderFormPage = () => {
     setManualSellingPrice(null)
     setFormData(prev => ({ ...prev, marginRate }))
   }
+
+  // 렌더링을 위한 판매가 및 이익 계산
+  const selectedProduct = products.find(p => p.id === formData.productId)
+  const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
+  const packageCount = formData.quantity / unitsPerPackage
+  const costPerPackage = packageCount > 0 ? formData.totalCostKrw / packageCount : 0
+  const marginDecimal = (formData.marginRate || 0) / 100
+  const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
+  const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
+  
+  const numerator = costPerPackage + (formData.actualShippingFeeKrw || 0)
+  const denominator = 1 - marginDecimal - commissionDecimal - roasMultiplier
+  
+  const calculatedSellingPrice = denominator > 0 ? Math.round(numerator / denominator) : 0
+  const sellingPrice = manualSellingPrice || calculatedSellingPrice
+  
+  const adCost = sellingPrice * roasMultiplier
+  const commission = sellingPrice * commissionDecimal
+  const profit = sellingPrice - costPerPackage - (formData.actualShippingFeeKrw || 0) - adCost - commission
 
   const isPending = createOrderMutation.isPending || updateOrderMutation.isPending
 
@@ -510,72 +543,93 @@ const OrderFormPage = () => {
             </div>
 
             {/* 비용 상세 내역 섹션 */}
-            <div className="border p-4 rounded-md bg-blue-50/50">
-              <h3 className="font-semibold text-lg mb-4">비용 상세 내역 (총 원가 구성)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">원가 (위안)</p>
-                  <p className="font-semibold">{formData.originalCostYuan.toLocaleString()} 위안</p>
-                  <p className="text-sm text-blue-600">= {(formData.originalCostYuan * formData.exchangeRate).toLocaleString()}원</p>
+            <div className="border p-4 rounded-md bg-blue-50/50 space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-lg">비용 상세 내역 (총 원가 구성)</h3>
+                <div className="bg-blue-600 text-white px-4 py-2 rounded-md font-bold shadow-sm">
+                  총 원가: {formData.totalCostKrw.toLocaleString()}원
                 </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">구매대행 수수료 (위안)</p>
-                  <p className="font-semibold">{formData.serviceFeeYuan.toLocaleString()} 위안</p>
-                  <p className="text-sm text-blue-600">= {(formData.serviceFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
+              </div>
+
+              {/* 1차 결제 */}
+              <div className="bg-white/50 p-3 rounded-md border border-blue-100">
+                <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">1차 결제</span>
+                  <span className="text-sm">상품 매입 및 중국 내 이동</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">원가 (위안)</p>
+                    <p className="font-semibold">{formData.originalCostYuan.toLocaleString()} 위안</p>
+                    <p className="text-sm text-blue-600">= {(formData.originalCostYuan * formData.exchangeRate).toLocaleString()}원</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">구매대행 수수료 (위안)</p>
+                    <p className="font-semibold">{formData.serviceFeeYuan.toLocaleString()} 위안</p>
+                    <p className="text-sm text-blue-600">= {(formData.serviceFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
+                  </div>
+
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">중국내 배송비 (위안)</p>
+                    <p className="font-semibold">{(formData.domesticShippingFeeYuan || 0).toLocaleString()} 위안</p>
+                    <p className="text-sm text-blue-600">= {((formData.domesticShippingFeeYuan || 0) * formData.exchangeRate).toLocaleString()}원</p>
+                  </div>
                 </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">검품비 (위안)</p>
-                  <p className="font-semibold">{formData.inspectionFeeYuan.toLocaleString()} 위안</p>
-                  <p className="text-sm text-blue-600">= {(formData.inspectionFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
+              </div>
+
+              {/* 2차 결제 */}
+              <div className="bg-white/50 p-3 rounded-md border border-blue-100">
+                <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">2차 결제</span>
+                  <span className="text-sm">국제 배송 및 기타</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">검품비 (위안)</p>
+                    <p className="font-semibold">{formData.inspectionFeeYuan.toLocaleString()} 위안</p>
+                    <p className="text-sm text-blue-600">= {(formData.inspectionFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">포장비 (위안)</p>
+                    <p className="font-semibold">{formData.packagingFeeYuan.toFixed(2)} 위안</p>
+                    <p className="text-sm text-blue-600">= {(formData.packagingFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">해외 배송비</p>
+                    <p className="font-semibold text-blue-600">{(formData.internationalShippingFeeKrw || 0).toLocaleString()}원</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">기타 비용</p>
+                    <p className="font-semibold text-blue-600">{(formData.miscellaneousFeeKrw || 0).toLocaleString()}원</p>
+                  </div>
                 </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">포장비 (위안)</p>
-                  <p className="font-semibold">{formData.packagingFeeYuan.toFixed(2)} 위안</p>
-                  <p className="text-sm text-blue-600">= {(formData.packagingFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">중국내 배송비 (위안)</p>
-                  <p className="font-semibold">{(formData.domesticShippingFeeYuan || 0).toLocaleString()} 위안</p>
-                  <p className="text-sm text-blue-600">= {((formData.domesticShippingFeeYuan || 0) * formData.exchangeRate).toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">해외 배송비</p>
-                  <p className="font-semibold text-blue-600">{(formData.internationalShippingFeeKrw || 0).toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">총 배송비</p>
-                  <p className="font-semibold text-blue-600">{(formData.shippingFeeKrw || 0).toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">기타 비용</p>
-                  <p className="font-semibold text-blue-600">{(formData.miscellaneousFeeKrw || 0).toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">통관비</p>
-                  <p className="font-semibold text-blue-600">{formData.customsFeeKrw.toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">관세</p>
-                  <p className="font-semibold text-blue-600">{formData.dutyKrw.toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded border">
-                  <p className="text-xs text-muted-foreground mb-1">부가세</p>
-                  <p className="font-semibold text-blue-600">{formData.vatKrw.toLocaleString()}원</p>
-                </div>
-                
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded border border-blue-700 text-white">
-                  <p className="text-xs mb-1 opacity-90">총 원가</p>
-                  <p className="font-bold text-lg">{formData.totalCostKrw.toLocaleString()}원</p>
+              </div>
+
+              {/* 3차 결제 */}
+              <div className="bg-white/50 p-3 rounded-md border border-blue-100">
+                <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">3차 결제</span>
+                  <span className="text-sm">통관 및 세금</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">통관비</p>
+                    <p className="font-semibold text-blue-600">{formData.customsFeeKrw.toLocaleString()}원</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">관세</p>
+                    <p className="font-semibold text-blue-600">{formData.dutyKrw.toLocaleString()}원</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">부가세</p>
+                    <p className="font-semibold text-blue-600">{formData.vatKrw.toLocaleString()}원</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -612,10 +666,10 @@ const OrderFormPage = () => {
                     id="manualSellingPrice"
                     type="number"
                     placeholder="마진율로 자동 계산됨"
-                    value={manualSellingPrice || ''}
+                    value={manualSellingPrice ?? calculatedSellingPrice}
                     onChange={(e) => {
                       const value = e.target.value ? Number(e.target.value) : null
-                      if (value) handleSellingPriceChange(value)
+                      if (value !== null) handleSellingPriceChange(value)
                       else setManualSellingPrice(null)
                     }}
                   />
@@ -664,30 +718,7 @@ const OrderFormPage = () => {
             {/* 판매가격 계산 상세 */}
             <div className="border-2 border-primary/20 p-6 rounded-md bg-gradient-to-br from-blue-50 to-indigo-50">
               <h3 className="font-bold text-xl mb-4 text-primary">📊 판매가격 계산 상세</h3>
-              {(() => {
-                const selectedProduct = products.find(p => p.id === formData.productId)
-                const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
-                const packageCount = formData.quantity / unitsPerPackage
-                const costPerPackage = packageCount > 0 ? formData.totalCostKrw / packageCount : 0
-                const marginDecimal = (formData.marginRate || 0) / 100
-                const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
-                const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
-                
-                // 판매가 기준 마진율 공식:
-                // 판매가 = (원가 + 배송비) / (1 - 마진율 - 수수료율 - 1/ROAS)
-                const numerator = costPerPackage + (formData.actualShippingFeeKrw || 0)
-                const denominator = 1 - marginDecimal - commissionDecimal - roasMultiplier
-                
-                // 수동 입력된 판매가격이 있으면 사용, 없으면 계산
-                const calculatedSellingPrice = denominator > 0 ? Math.round(numerator / denominator) : 0
-                const sellingPrice = manualSellingPrice || calculatedSellingPrice
-                
-                const adCost = sellingPrice * roasMultiplier
-                const commission = sellingPrice * commissionDecimal
-                const profit = sellingPrice - costPerPackage - (formData.actualShippingFeeKrw || 0) - adCost - commission
-
-                return (
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {/* 기본 정보 */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="bg-white p-3 rounded border">
@@ -726,7 +757,7 @@ const OrderFormPage = () => {
                               <span>=</span>
                               <span>({profit.toLocaleString()} / {sellingPrice.toLocaleString()}) * 100</span>
                               <span>=</span>
-                              <span className="font-bold text-blue-600">{sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(1) : 0}%</span>
+                              <span className="font-bold text-blue-600">{sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%</span>
                             </div>
                           </>
                         ) : (
@@ -769,7 +800,7 @@ const OrderFormPage = () => {
                           <p className="text-sm opacity-90 mb-1">예상 순이익</p>
                           <p className="text-2xl font-bold text-green-300">{profit.toLocaleString()}원</p>
                           <p className="text-xs opacity-75 mt-1">
-                            마진율: {sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(1) : 0}%
+                            마진율: {sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%
                           </p>
                         </div>
                       </div>
@@ -798,12 +829,10 @@ const OrderFormPage = () => {
                       <div className="bg-white p-3 rounded border-2 border-green-300">
                         <p className="text-xs text-muted-foreground mb-1">순이익</p>
                         <p className="font-bold text-green-600">{Math.round(profit).toLocaleString()}원</p>
-                        <p className="text-xs text-muted-foreground">({sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(1) : 0}%)</p>
+                        <p className="text-xs text-muted-foreground">({sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%)</p>
                       </div>
                     </div>
-                  </div>
-                )
-              })()}
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">

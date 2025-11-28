@@ -137,4 +137,10 @@ export class CreateOrderDto {
   @IsNotEmpty()
   @IsDateString()
   orderDate: string;
+
+  @ApiProperty({ description: '판매가격 (원화)', example: 15000, required: false })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  sellingPriceKrw?: number;
 }
