@@ -7,6 +7,13 @@ export interface Product {
   productUrl?: string;
   options?: string;
   unitsPerPackage?: number;
+  orders?: Array<{
+    id: number;
+    quantity: number;
+    totalCostKrw: number;
+    sellingPriceKrw: number;
+    orderDate: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }

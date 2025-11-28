@@ -3,24 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { productService } from '@/services'
-import apiClient from '@/services/api'
-
-interface ProductWithOrders {
-  id: number
-  name: string
-  pricePerUnitYuan: number
-  weightPerUnit: number
-  productUrl?: string
-  options?: string
-  unitsPerPackage: number
-  orders?: Array<{
-    id: number
-    quantity: number
-    totalCostKrw: number
-    sellingPriceKrw: number
-    orderDate: string
-  }>
-}
+import { Product } from '@/types'
 
 const ProductDetailPage = () => {
   const { id } = useParams()
@@ -28,11 +11,10 @@ const ProductDetailPage = () => {
   const queryClient = useQueryClient()
 
   // 제품 상세 조회 (발주 포함)
-  const { data: product, isLoading } = useQuery<ProductWithOrders>({
+  const { data: product, isLoading } = useQuery<Product>({
     queryKey: ['product', id, 'withOrders'],
     queryFn: async () => {
-      const response = await apiClient.get<ProductWithOrders>(`/products/${id}?includeOrders=true`)
-      return response.data
+      return await productService.getByIdWithOrders(Number(id))
     },
     enabled: !!id
   })

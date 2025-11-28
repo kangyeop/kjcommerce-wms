@@ -15,6 +15,12 @@ const productService = {
     return response.data;
   },
 
+  // 특정 제품 조회 (발주 포함)
+  getByIdWithOrders: async (id: number): Promise<Product> => {
+    const response = await apiClient.get<Product>(`/products/${id}?includeOrders=true`);
+    return response.data;
+  },
+
   // 제품 생성
   create: async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> => {
     const response = await apiClient.post<Product>('/products', product);
