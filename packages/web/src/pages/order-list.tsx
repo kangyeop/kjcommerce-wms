@@ -86,7 +86,7 @@ const OrderListPage = () => {
                       </td>
                       <td className="text-right p-3 font-semibold text-green-600">
                         {(
-                          order.marginRate *
+                          (order.marginRate / 100) *
                           order.sellingPriceKrw *
                           (order.quantity / (order.product?.unitsPerPackage || 1))
                         ).toLocaleString()}
