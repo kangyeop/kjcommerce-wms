@@ -1,34 +1,34 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { orderService } from '@/services'
-import { Order } from '@/types'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { orderService } from '@/services';
+import { Order } from '@/types';
 
 const OrderListPage = () => {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // 발주 목록 조회
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['orders'],
-    queryFn: orderService.getAll
-  })
+    queryFn: orderService.getAll,
+  });
 
   // 발주 삭제 mutation
   const deleteOrderMutation = useMutation({
     mutationFn: orderService.delete,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-    }
-  })
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
-    e.stopPropagation() // 행 클릭 이벤트 전파 방지
+    e.stopPropagation(); // 행 클릭 이벤트 전파 방지
     if (confirm('정말 이 발주를 삭제하시겠습니까?')) {
-      deleteOrderMutation.mutate(id)
+      deleteOrderMutation.mutate(id);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -70,9 +70,9 @@ const OrderListPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map(order => (
-                    <tr 
-                      key={order.id} 
+                  {orders.map((order) => (
+                    <tr
+                      key={order.id}
                       className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => navigate(`/orders/${order.id}`)}
                     >
@@ -85,7 +85,12 @@ const OrderListPage = () => {
                         {order.sellingPriceKrw.toLocaleString()}원
                       </td>
                       <td className="text-right p-3 font-semibold text-green-600">
-                        {(order.sellingPriceKrw - order.totalCostKrw).toLocaleString()}원
+                        {(
+                          order.marginRate *
+                          order.sellingPriceKrw *
+                          (order.quantity / (order.product?.unitsPerPackage || 1))
+                        ).toLocaleString()}
+                        원
                       </td>
                       <td className="p-3">{order.orderDate}</td>
                       <td className="text-center p-3">
@@ -107,7 +112,7 @@ const OrderListPage = () => {
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};
 
-export default OrderListPage
+export default OrderListPage;
