@@ -11,7 +11,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         type: 'better-sqlite3', // "sqlite" 대신 "better-sqlite3" 사용
         database: 'database.sqlite',
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-        synchronize: configService.get<string>('NODE_ENV') === 'development',
+        synchronize: true, // 자동 스키마 동기화 활성화
         logging: configService.get<string>('NODE_ENV') === 'development',
       }),
     }),
