@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +7,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { orderService, productService } from '@/services'
 import { CreateOrderDto, Product, OrderItem } from '@/types'
+import {
+  calculateServiceFee,
+  calculatePackagingFee,
+  calculateInspectionFee,
+  calculateInternationalShipping,
+  calculateTaxableAmount,
+  calculateDuty,
+  calculateVAT,
+  calculateItemTotalCostKrw,
+  calculateUnitCost
+} from '@/lib/order-calculations'
 
 const OrderFormPage = () => {
   const { id } = useParams()
@@ -91,8 +102,8 @@ const OrderFormPage = () => {
   }, [existingOrder])
 
   // 탭 추가 (새 상품 추가)
-  const addProductTab = () => {
-    setOrderItems([...orderItems, {
+  const addProductTab = useCallback(() => {
+    setOrderItems(prev => [...prev, {
       productId: 0,
       quantity: 0,
       originalCostYuan: 0,
@@ -104,10 +115,10 @@ const OrderFormPage = () => {
       unitCostKrw: 0,
     }])
     setActiveTabIndex(orderItems.length)
-  }
+  }, [orderItems.length])
 
   // 탭 삭제 (상품 제거)
-  const removeProductTab = (index: number) => {
+  const removeProductTab = useCallback((index: number) => {
     if (orderItems.length === 1) {
       alert('최소 1개의 상품은 있어야 합니다.')
       return
@@ -117,14 +128,16 @@ const OrderFormPage = () => {
     if (activeTabIndex >= newItems.length) {
       setActiveTabIndex(newItems.length - 1)
     }
-  }
+  }, [orderItems, activeTabIndex])
 
   // 현재 활성 아이템 업데이트
-  const updateCurrentItem = (updates: Partial<OrderItem>) => {
-    const newItems = [...orderItems]
-    newItems[activeTabIndex] = { ...newItems[activeTabIndex], ...updates }
-    setOrderItems(newItems)
-  }
+  const updateCurrentItem = useCallback((updates: Partial<OrderItem>) => {
+    setOrderItems(prev => {
+      const newItems = [...prev]
+      newItems[activeTabIndex] = { ...newItems[activeTabIndex], ...updates }
+      return newItems
+    })
+  }, [activeTabIndex])
 
   const currentItem = orderItems[activeTabIndex]
 
@@ -134,51 +147,36 @@ const OrderFormPage = () => {
       const selectedProduct = products.find(p => p.id === currentItem.productId)
       if (selectedProduct) {
         const originalCost = selectedProduct.pricePerUnitYuan * currentItem.quantity
-        
-        // 구매대행 수수료 계산
-        let serviceFee = 0
-        if (originalCost < 500) {
-          serviceFee = 30
-        } else if (originalCost < 1000) {
-          serviceFee = 50
-        } else {
-          serviceFee = originalCost * 0.05
-        }
-        
-        // 포장비 계산
-        const unitsPerPackage = selectedProduct.unitsPerPackage || 1
-        const packagingFee = (currentItem.quantity / unitsPerPackage) * 0.3
+        const serviceFee = calculateServiceFee(originalCost)
+        const inspectionFee = calculateInspectionFee(originalCost)
+        const packagingFee = calculatePackagingFee(currentItem.quantity, selectedProduct.unitsPerPackage || 1)
         
         updateCurrentItem({
           originalCostYuan: originalCost,
           serviceFeeYuan: serviceFee,
-          inspectionFeeYuan: originalCost * 0.02,
+          inspectionFeeYuan: inspectionFee,
           packagingFeeYuan: packagingFee,
         })
       }
     }
-  }, [currentItem.productId, currentItem.quantity, products, activeTabIndex])
+  }, [currentItem.productId, currentItem.quantity, products, updateCurrentItem])
 
-  // 각 아이템의 총 원가 및 개당 원가 계산
-  useEffect(() => {
-    const newItems = orderItems.map(item => {
-      const originalCostKrw = item.originalCostYuan * formData.exchangeRate
-      const serviceFeeKrw = item.serviceFeeYuan * formData.exchangeRate
-      const inspectionFeeKrw = item.inspectionFeeYuan * formData.exchangeRate
-      const packagingFeeKrw = item.packagingFeeYuan * formData.exchangeRate
-      const domesticShippingKrw = (item.domesticShippingFeeYuan || 0) * formData.exchangeRate
-      
-      const itemTotal = Math.round(
-        originalCostKrw + serviceFeeKrw + inspectionFeeKrw + 
-        packagingFeeKrw + domesticShippingKrw
+  // 각 아이템의 총 원가 및 개당 원가 계산 (useMemo로 최적화)
+  const calculatedItems = useMemo(() => {
+    return orderItems.map(item => {
+      const itemTotal = calculateItemTotalCostKrw(
+        item.originalCostYuan,
+        item.serviceFeeYuan,
+        item.inspectionFeeYuan,
+        item.packagingFeeYuan,
+        item.domesticShippingFeeYuan || 0,
+        formData.exchangeRate
       )
       
-      const unitCost = item.quantity > 0 ? Math.round(itemTotal / item.quantity) : 0
+      const unitCost = calculateUnitCost(itemTotal, item.quantity)
       
       return { ...item, itemTotalCostKrw: itemTotal, unitCostKrw: unitCost }
     })
-    
-    setOrderItems(newItems)
   }, [
     orderItems.map(i => i.originalCostYuan).join(','),
     orderItems.map(i => i.serviceFeeYuan).join(','),
@@ -189,8 +187,20 @@ const OrderFormPage = () => {
     formData.exchangeRate
   ])
 
-  // 해외배송비 자동 계산 (모든 상품의 무게 합산)
+  // calculatedItems가 변경되면 orderItems 업데이트
   useEffect(() => {
+    const hasChanged = calculatedItems.some((newItem, index) => 
+      newItem.itemTotalCostKrw !== orderItems[index].itemTotalCostKrw ||
+      newItem.unitCostKrw !== orderItems[index].unitCostKrw
+    )
+    
+    if (hasChanged) {
+      setOrderItems(calculatedItems)
+    }
+  }, [calculatedItems])
+
+  // 총 무게 계산 (useMemo로 최적화)
+  const totalWeightKg = useMemo(() => {
     const totalWeightG = orderItems.reduce((sum, item) => {
       const product = products.find(p => p.id === item.productId)
       if (product) {
@@ -198,43 +208,46 @@ const OrderFormPage = () => {
       }
       return sum
     }, 0)
-    
-    const totalWeightKg = totalWeightG / 1000
-    let internationalShipping = 0
-    if (totalWeightKg <= 1) {
-      internationalShipping = 6000
-    } else {
-      internationalShipping = 6000 + Math.ceil((totalWeightKg - 1) * 1600)
-    }
-    
-    if (internationalShipping !== formData.internationalShippingFeeKrw) {
-      setFormData(prev => ({ ...prev, internationalShippingFeeKrw: internationalShipping }))
-    }
+    return totalWeightG / 1000
   }, [orderItems, products])
 
-  // 과세가격, 관세, 부가세 자동 계산 (모든 상품의 원가 합산)
+  // 해외배송비 자동 계산 (useMemo로 계산, useEffect로 상태 업데이트)
+  const calculatedInternationalShipping = useMemo(() => {
+    return calculateInternationalShipping(totalWeightKg)
+  }, [totalWeightKg])
+
   useEffect(() => {
+    if (calculatedInternationalShipping !== formData.internationalShippingFeeKrw) {
+      setFormData(prev => ({ ...prev, internationalShippingFeeKrw: calculatedInternationalShipping }))
+    }
+  }, [calculatedInternationalShipping, formData.internationalShippingFeeKrw])
+
+  // 과세가격, 관세, 부가세 자동 계산 (useMemo로 최적화)
+  const taxCalculations = useMemo(() => {
     const totalProductPriceYuan = orderItems.reduce((sum, item) => sum + item.originalCostYuan, 0)
     const productPriceKrw = totalProductPriceYuan * formData.exchangeRate
-    const taxableAmount = Math.round(productPriceKrw)
+    const taxableAmount = calculateTaxableAmount(productPriceKrw)
+    const duty = calculateDuty(taxableAmount)
+    const vat = calculateVAT(taxableAmount, duty)
     
-    const duty = Math.round(taxableAmount * 0.08)
-    const vat = Math.round((taxableAmount + duty) * 0.10)
-    
-    if (taxableAmount !== formData.taxableAmountKrw || 
-        duty !== formData.dutyKrw || 
-        vat !== formData.vatKrw) {
-      setFormData(prev => ({
-        ...prev,
-        taxableAmountKrw: taxableAmount,
-        dutyKrw: duty,
-        vatKrw: vat
-      }))
-    }
+    return { taxableAmount, duty, vat }
   }, [orderItems, formData.exchangeRate])
 
-  // 총 원가 자동 계산
   useEffect(() => {
+    if (taxCalculations.taxableAmount !== formData.taxableAmountKrw || 
+        taxCalculations.duty !== formData.dutyKrw || 
+        taxCalculations.vat !== formData.vatKrw) {
+      setFormData(prev => ({
+        ...prev,
+        taxableAmountKrw: taxCalculations.taxableAmount,
+        dutyKrw: taxCalculations.duty,
+        vatKrw: taxCalculations.vat
+      }))
+    }
+  }, [taxCalculations, formData.taxableAmountKrw, formData.dutyKrw, formData.vatKrw])
+
+  // 총 원가 자동 계산 (useMemo로 최적화)
+  const calculatedTotalCost = useMemo(() => {
     const itemsTotal = orderItems.reduce((sum, item) => sum + item.itemTotalCostKrw, 0)
     const totalCost = itemsTotal +
                       (formData.internationalShippingFeeKrw || 0) +
@@ -243,11 +256,7 @@ const OrderFormPage = () => {
                       formData.dutyKrw +
                       formData.vatKrw
     
-    const roundedTotalCost = Math.round(totalCost)
-
-    if (roundedTotalCost !== formData.totalCostKrw) {
-      setFormData(prev => ({ ...prev, totalCostKrw: roundedTotalCost }))
-    }
+    return Math.round(totalCost)
   }, [
     orderItems,
     formData.internationalShippingFeeKrw,
@@ -256,6 +265,12 @@ const OrderFormPage = () => {
     formData.dutyKrw,
     formData.vatKrw
   ])
+
+  useEffect(() => {
+    if (calculatedTotalCost !== formData.totalCostKrw) {
+      setFormData(prev => ({ ...prev, totalCostKrw: calculatedTotalCost }))
+    }
+  }, [calculatedTotalCost, formData.totalCostKrw])
 
   // 발주 생성 mutation
   const createOrderMutation = useMutation({
