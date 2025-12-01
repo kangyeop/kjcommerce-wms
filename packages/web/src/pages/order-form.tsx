@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { orderService, productService } from '@/services'
-import { CreateOrderDto, Product, OrderItem, CreateOrderItemDto } from '@/types'
+import { CreateOrderDto, Product, OrderItem } from '@/types'
 import { calculateStorageFee, StorageFeeOutput } from '@/lib/storage-fee-calculator'
 
 const OrderFormPage = () => {

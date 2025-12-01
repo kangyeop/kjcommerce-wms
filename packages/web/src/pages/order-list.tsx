@@ -59,8 +59,8 @@ const OrderListPage = () => {
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-medium">ID</th>
-                    <th className="text-left p-3 font-medium">제품명</th>
-                    <th className="text-right p-3 font-medium">수량</th>
+                    <th className="text-left p-3 font-medium">상품 수</th>
+                    <th className="text-left p-3 font-medium">상품 목록</th>
                     <th className="text-right p-3 font-medium">총 원가</th>
                     <th className="text-right p-3 font-medium">마진율</th>
                     <th className="text-right p-3 font-medium">판매가격</th>
@@ -70,41 +70,46 @@ const OrderListPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/orders/${order.id}`)}
-                    >
-                      <td className="p-3">{order.id}</td>
-                      <td className="p-3 font-medium">{order.product?.name || '-'}</td>
-                      <td className="text-right p-3">{order.quantity.toLocaleString()}</td>
-                      <td className="text-right p-3">{order.totalCostKrw.toLocaleString()}원</td>
-                      <td className="text-right p-3">{order.marginRate}%</td>
-                      <td className="text-right p-3 font-bold text-primary">
-                        {order.sellingPriceKrw.toLocaleString()}원
-                      </td>
-                      <td className="text-right p-3 font-semibold text-green-600">
-                        {(
-                          (order.marginRate / 100) *
-                          order.sellingPriceKrw *
-                          (order.quantity / (order.product?.unitsPerPackage || 1))
-                        ).toLocaleString()}
-                        원
-                      </td>
-                      <td className="p-3">{order.orderDate}</td>
-                      <td className="text-center p-3">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={(e) => handleDelete(e, order.id)}
-                          disabled={deleteOrderMutation.isPending}
-                        >
-                          삭제
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((order) => {
+                    const profit = order.sellingPriceKrw - order.totalCostKrw;
+                    
+                    return (
+                      <tr
+                        key={order.id}
+                        className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/orders/${order.id}`)}
+                      >
+                        <td className="p-3">{order.id}</td>
+                        <td className="p-3">
+                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold">
+                            {order.items?.length || 0}개 상품
+                          </span>
+                        </td>
+                        <td className="p-3 font-medium max-w-xs truncate">
+                          {order.items?.map(item => item.product?.name).filter(Boolean).join(', ') || '-'}
+                        </td>
+                        <td className="text-right p-3">{order.totalCostKrw.toLocaleString()}원</td>
+                        <td className="text-right p-3">{order.marginRate.toFixed(2)}%</td>
+                        <td className="text-right p-3 font-bold text-primary">
+                          {order.sellingPriceKrw.toLocaleString()}원
+                        </td>
+                        <td className="text-right p-3 font-semibold text-green-600">
+                          {profit.toLocaleString()}원
+                        </td>
+                        <td className="p-3">{order.orderDate}</td>
+                        <td className="text-center p-3">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={(e) => handleDelete(e, order.id)}
+                            disabled={deleteOrderMutation.isPending}
+                          >
+                            삭제
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
