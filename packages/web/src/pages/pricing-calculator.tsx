@@ -597,9 +597,14 @@ const PricingCalculatorPage = () => {
                         
                         <div className="flex justify-between items-center py-4 mt-2 bg-emerald-50/50 px-4 rounded-lg">
                           <span className="text-emerald-700 font-bold text-lg">최종 순이익</span>
-                          <span className="text-2xl font-extrabold text-emerald-600">
-                            {calculationResult.profit.toLocaleString()}원
-                          </span>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-extrabold text-emerald-600">
+                              {calculationResult.profit.toLocaleString()}원
+                            </span>
+                            <span className="text-sm font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                              {((calculationResult.profit / calculationResult.sellingPrice) * 100).toFixed(1)}%
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </>
