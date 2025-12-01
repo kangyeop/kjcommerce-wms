@@ -1,22 +1,12 @@
 export interface StorageFeeInput {
   maxDays: number;
-  initialQty: number;
   cbmPerUnit: number;
   dailySales: number;
 }
 
-export interface DailyBreakdown {
-  day: number;
-  remainingQty: number;
-  currentCbm: number;
-  rate: number;
-  dailyCost: number;
-}
-
 export interface StorageFeeOutput {
-  totalCost: number;
+  totalFeePerUnit: number;
   daysToSellout: number;
-  dailyBreakdown: DailyBreakdown[];
 }
 
 const getRate = (day: number): number => {
@@ -30,44 +20,40 @@ const getRate = (day: number): number => {
 
 export const calculateStorageFee = ({
   maxDays,
-  initialQty,
   cbmPerUnit,
   dailySales,
 }: StorageFeeInput): StorageFeeOutput => {
+  // 1개 판매될 때마다 재고가 줄어드는 속도
+  // 예: 하루 10개 판매, 1개당 CBM 0.01
+  // 1개 판매 시 발생하는 보관료 = (판매될 때까지 걸리는 일수) 동안의 보관료 합계 / 판매량?
+  // 더 단순하게: 1개가 판매되기까지 평균적으로 며칠이 걸리는지 계산하고, 그 기간 동안의 CBM * Rate를 계산?
+  
+  // 시뮬레이션 방식:
+  // 재고 100개 가정 (임의의 충분한 수량)
+  const initialQty = 100;
   let totalCost = 0;
-  const dailyBreakdown: DailyBreakdown[] = [];
-  let daysToSellout = 0;
-
-  for (let day = 1; day <= maxDays; day++) {
-    const remainingQty = initialQty - dailySales * (day - 1);
-
-    if (remainingQty <= 0) {
-      daysToSellout = day - 1;
-      break;
-    }
-
+  let remainingQty = initialQty;
+  let day = 1;
+  
+  // 재고가 다 팔릴 때까지 시뮬레이션
+  while (remainingQty > 0 && day <= maxDays) {
     const currentCbm = remainingQty * cbmPerUnit;
     const rate = getRate(day);
     const dailyCost = currentCbm * rate;
-
+    
     totalCost += dailyCost;
-    dailyBreakdown.push({
-      day,
-      remainingQty,
-      currentCbm,
-      rate,
-      dailyCost,
-    });
-
-    // If we reach the last day and still have stock, set daysToSellout to maxDays
-    if (day === maxDays) {
-      daysToSellout = maxDays;
-    }
+    
+    remainingQty -= dailySales;
+    day++;
   }
+  
+  const daysToSellout = day - 1;
+  
+  // 총 보관료를 초기 수량으로 나누어 개당 평균 보관료 계산
+  const totalFeePerUnit = Math.ceil(totalCost / initialQty);
 
   return {
-    totalCost,
+    totalFeePerUnit,
     daysToSellout,
-    dailyBreakdown,
   };
 };

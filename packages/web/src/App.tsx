@@ -5,6 +5,7 @@ import ProductListPage from './pages/product-list'
 import ProductFormPage from './pages/product-form'
 import OrderListPage from './pages/order-list'
 import OrderFormPage from './pages/order-form'
+import PricingCalculatorPage from './pages/pricing-calculator'
 import { QueryProvider } from './context/QueryProvider'
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="orders" element={<OrderListPage />} />
             <Route path="orders/new" element={<OrderFormPage />} />
             <Route path="orders/:id" element={<OrderFormPage />} />
+            <Route path="pricing" element={<PricingCalculatorPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

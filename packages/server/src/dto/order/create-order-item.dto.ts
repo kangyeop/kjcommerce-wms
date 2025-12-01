@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsPositive, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsPositive, Min, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateOrderItemDto {
@@ -44,6 +44,7 @@ export class CreateOrderItemDto {
   packagingFeeYuan: number;
 
   @ApiProperty({ description: '중국내 배송비 (위안)', example: 10.0, required: false, default: 0 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
@@ -57,6 +58,7 @@ export class CreateOrderItemDto {
   itemTotalCostKrw: number;
 
   @ApiProperty({ description: '개당 원가 (원화)', example: 5000, required: false, default: 0 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)

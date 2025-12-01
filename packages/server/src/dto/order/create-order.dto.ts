@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsDateString, IsPositive, Min, IsArray, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsDateString, IsPositive, Min, IsArray, ValidateNested, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateOrderItemDto } from './create-order-item.dto';
 
@@ -19,12 +19,14 @@ export class CreateOrderDto {
   exchangeRate: number;
 
   @ApiProperty({ description: '해외 배송비 (원화)', example: 6000, required: false, default: 0 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   internationalShippingFeeKrw?: number;
 
   @ApiProperty({ description: '기타 비용 (원화)', example: 5000, required: false, default: 0 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)

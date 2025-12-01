@@ -5,6 +5,8 @@ import { ProductModule } from './modules/product.module';
 import { OrderModule } from './modules/order.module';
 import { ExchangeRateModule } from './modules/exchange-rate.module';
 import { AppController } from './app.controller';
+import { PricingController } from './controllers/pricing.controller';
+import { PricingService } from './services/pricing.service';
 
 @Module({
   imports: [
