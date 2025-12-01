@@ -11,10 +11,10 @@
     "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:server\"",
     "build": "pnpm --filter @kjcommerce-wms/web build",
     "build:server": "pnpm --filter @kjcommerce-wms/server build",
-    "build:all": "pnpm build && pnpm build:server",
+    "build:all": "pm2 kill && pnpm build && pnpm build:server",
     "preview": "pnpm --filter @kjcommerce-wms/web preview",
     "start": "pnpm --filter @kjcommerce-wms/server start",
-    "deploy": "pm2 restart ecosystem.config.js --env production && cp -R packages/web/dist /var/www"
+    "deploy": "pnpm build:all && pm2 restart ecosystem.config.js --env production && cp -R packages/web/dist /var/www"
   },
   "engines": {
     "node": ">=18.0.0",
