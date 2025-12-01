@@ -49,16 +49,16 @@ export class CreateOrderItemDto {
   @Type(() => Number)
   domesticShippingFeeYuan?: number;
 
-  @ApiProperty({ description: '보관료 (원화)', example: 10000, required: false, default: 0 })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  storageFeeKrw?: number;
-
   @ApiProperty({ description: '아이템 총 원가 (원화)', example: 50000 })
   @IsNotEmpty()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   itemTotalCostKrw: number;
+
+  @ApiProperty({ description: '개당 원가 (원화)', example: 5000, required: false, default: 0 })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  unitCostKrw?: number;
 }

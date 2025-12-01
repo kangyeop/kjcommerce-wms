@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { orderService, productService } from '@/services'
 import { CreateOrderDto, Product, OrderItem } from '@/types'
-import { calculateStorageFee, StorageFeeOutput } from '@/lib/storage-fee-calculator'
 
 const OrderFormPage = () => {
   const { id } = useParams()
@@ -41,8 +40,8 @@ const OrderFormPage = () => {
       inspectionFeeYuan: 0,
       packagingFeeYuan: 0,
       domesticShippingFeeYuan: 0,
-      storageFeeKrw: 0,
       itemTotalCostKrw: 0,
+      unitCostKrw: 0,
     }
   ])
 
@@ -56,27 +55,27 @@ const OrderFormPage = () => {
     dutyKrw: 0,
     vatKrw: 0,
     totalCostKrw: 0,
-    marginRate: 30,
-    roas: 2,
-    actualShippingFeeKrw: 3000,
-    marketplaceCommissionRate: 10,
     orderDate: new Date().toISOString().split('T')[0]
   })
-
-  // 판매가격 입력을 위한 별도 상태
-  const [manualSellingPrice, setManualSellingPrice] = useState<number | null>(null)
-
-  // 보관료 계산을 위한 상태 (현재 활성 탭의 상품용)
-  const [storageFeeInputs, setStorageFeeInputs] = useState({
-    maxDays: 365,
-    dailySales: 10
-  })
-  const [storageFeeResult, setStorageFeeResult] = useState<StorageFeeOutput | null>(null)
 
   // 기존 데이터 로드
   useEffect(() => {
     if (existingOrder) {
-      setOrderItems(existingOrder.items || [])
+      const items = existingOrder.items && existingOrder.items.length > 0
+        ? existingOrder.items
+        : [{
+            productId: 0,
+            quantity: 0,
+            originalCostYuan: 0,
+            serviceFeeYuan: 0,
+            inspectionFeeYuan: 0,
+            packagingFeeYuan: 0,
+            domesticShippingFeeYuan: 0,
+            itemTotalCostKrw: 0,
+            unitCostKrw: 0,
+          }]
+      
+      setOrderItems(items)
       setFormData({
         exchangeRate: existingOrder.exchangeRate,
         internationalShippingFeeKrw: existingOrder.internationalShippingFeeKrw || 0,
@@ -86,10 +85,6 @@ const OrderFormPage = () => {
         dutyKrw: existingOrder.dutyKrw,
         vatKrw: existingOrder.vatKrw,
         totalCostKrw: existingOrder.totalCostKrw,
-        marginRate: existingOrder.marginRate,
-        roas: existingOrder.roas || 2,
-        actualShippingFeeKrw: existingOrder.actualShippingFeeKrw || 3000,
-        marketplaceCommissionRate: existingOrder.marketplaceCommissionRate || 10,
         orderDate: existingOrder.orderDate
       })
     }
@@ -105,8 +100,8 @@ const OrderFormPage = () => {
       inspectionFeeYuan: 0,
       packagingFeeYuan: 0,
       domesticShippingFeeYuan: 0,
-      storageFeeKrw: 0,
       itemTotalCostKrw: 0,
+      unitCostKrw: 0,
     }])
     setActiveTabIndex(orderItems.length)
   }
@@ -164,33 +159,7 @@ const OrderFormPage = () => {
     }
   }, [currentItem.productId, currentItem.quantity, products, activeTabIndex])
 
-  // 보관료 자동 계산 (현재 활성 탭)
-  useEffect(() => {
-    if (currentItem.productId && currentItem.quantity) {
-      const selectedProduct = products.find(p => p.id === currentItem.productId)
-      if (selectedProduct && selectedProduct.cbmPerUnit > 0) {
-        const result = calculateStorageFee({
-          maxDays: storageFeeInputs.maxDays,
-          initialQty: currentItem.quantity,
-          cbmPerUnit: selectedProduct.cbmPerUnit,
-          dailySales: storageFeeInputs.dailySales
-        })
-        setStorageFeeResult(result)
-        
-        const storageFee = Math.round(result.totalCost)
-        if (storageFee !== currentItem.storageFeeKrw) {
-          updateCurrentItem({ storageFeeKrw: storageFee })
-        }
-      } else {
-        setStorageFeeResult(null)
-        if (currentItem.storageFeeKrw !== 0) {
-          updateCurrentItem({ storageFeeKrw: 0 })
-        }
-      }
-    }
-  }, [currentItem.productId, currentItem.quantity, storageFeeInputs, products, activeTabIndex])
-
-  // 각 아이템의 총 원가 계산
+  // 각 아이템의 총 원가 및 개당 원가 계산
   useEffect(() => {
     const newItems = orderItems.map(item => {
       const originalCostKrw = item.originalCostYuan * formData.exchangeRate
@@ -201,10 +170,12 @@ const OrderFormPage = () => {
       
       const itemTotal = Math.round(
         originalCostKrw + serviceFeeKrw + inspectionFeeKrw + 
-        packagingFeeKrw + domesticShippingKrw + (item.storageFeeKrw || 0)
+        packagingFeeKrw + domesticShippingKrw
       )
       
-      return { ...item, itemTotalCostKrw: itemTotal }
+      const unitCost = item.quantity > 0 ? Math.round(itemTotal / item.quantity) : 0
+      
+      return { ...item, itemTotalCostKrw: itemTotal, unitCostKrw: unitCost }
     })
     
     setOrderItems(newItems)
@@ -214,7 +185,7 @@ const OrderFormPage = () => {
     orderItems.map(i => i.inspectionFeeYuan).join(','),
     orderItems.map(i => i.packagingFeeYuan).join(','),
     orderItems.map(i => i.domesticShippingFeeYuan).join(','),
-    orderItems.map(i => i.storageFeeKrw).join(','),
+    orderItems.map(i => i.quantity).join(','),
     formData.exchangeRate
   ])
 
@@ -288,10 +259,7 @@ const OrderFormPage = () => {
 
   // 발주 생성 mutation
   const createOrderMutation = useMutation({
-    mutationFn: (newOrder: CreateOrderDto) => orderService.create({
-      ...newOrder,
-      sellingPriceKrw: sellingPrice
-    }),
+    mutationFn: (newOrder: CreateOrderDto) => orderService.create(newOrder),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       navigate('/orders')
@@ -304,10 +272,7 @@ const OrderFormPage = () => {
 
   // 발주 수정 mutation
   const updateOrderMutation = useMutation({
-    mutationFn: (updatedOrder: CreateOrderDto) => orderService.update(Number(id), {
-      ...updatedOrder,
-      sellingPriceKrw: sellingPrice
-    }),
+    mutationFn: (updatedOrder: CreateOrderDto) => orderService.update(Number(id), updatedOrder),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['order', id] })
@@ -344,8 +309,8 @@ const OrderFormPage = () => {
         inspectionFeeYuan: item.inspectionFeeYuan,
         packagingFeeYuan: item.packagingFeeYuan,
         domesticShippingFeeYuan: item.domesticShippingFeeYuan || 0,
-        storageFeeKrw: item.storageFeeKrw || 0,
         itemTotalCostKrw: item.itemTotalCostKrw,
+        unitCostKrw: item.unitCostKrw,
       })),
       exchangeRate: formData.exchangeRate,
       internationalShippingFeeKrw: formData.internationalShippingFeeKrw,
@@ -355,10 +320,6 @@ const OrderFormPage = () => {
       dutyKrw: formData.dutyKrw,
       vatKrw: formData.vatKrw,
       totalCostKrw: formData.totalCostKrw,
-      marginRate: formData.marginRate,
-      roas: formData.roas,
-      actualShippingFeeKrw: formData.actualShippingFeeKrw,
-      marketplaceCommissionRate: formData.marketplaceCommissionRate,
       orderDate: formData.orderDate,
     }
     
@@ -374,58 +335,6 @@ const OrderFormPage = () => {
       deleteOrderMutation.mutate()
     }
   }
-
-  // 판매가격 변경 시 마진율 역계산
-  const handleSellingPriceChange = (sellingPrice: number) => {
-    setManualSellingPrice(sellingPrice)
-    
-    // 전체 묶음 수 계산
-    const totalPackages = orderItems.reduce((sum, item) => {
-      const product = products.find(p => p.id === item.productId)
-      const unitsPerPackage = product?.unitsPerPackage || 1
-      return sum + (item.quantity / unitsPerPackage)
-    }, 0)
-    
-    const costPerPackage = totalPackages > 0 ? formData.totalCostKrw / totalPackages : 0
-    
-    if (costPerPackage === 0) return
-    
-    const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
-    const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
-    
-    const profit = sellingPrice * (1 - commissionDecimal - roasMultiplier) - costPerPackage - (formData.actualShippingFeeKrw || 0)
-    const marginRate = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0
-    
-    setFormData(prev => ({ ...prev, marginRate: Math.max(0, marginRate) }))
-  }
-
-  // 마진율 변경 시 수동 판매가격 초기화
-  const handleMarginRateChange = (marginRate: number) => {
-    setManualSellingPrice(null)
-    setFormData(prev => ({ ...prev, marginRate }))
-  }
-
-  // 렌더링을 위한 판매가 및 이익 계산
-  const totalPackages = orderItems.reduce((sum, item) => {
-    const product = products.find(p => p.id === item.productId)
-    const unitsPerPackage = product?.unitsPerPackage || 1
-    return sum + (item.quantity / unitsPerPackage)
-  }, 0)
-  
-  const costPerPackage = totalPackages > 0 ? formData.totalCostKrw / totalPackages : 0
-  const marginDecimal = (formData.marginRate || 0) / 100
-  const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
-  const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
-  
-  const numerator = costPerPackage + (formData.actualShippingFeeKrw || 0)
-  const denominator = 1 - marginDecimal - commissionDecimal - roasMultiplier
-  
-  const calculatedSellingPrice = denominator > 0 ? Math.round(numerator / denominator) : 0
-  const sellingPrice = manualSellingPrice || calculatedSellingPrice
-  
-  const adCost = sellingPrice * roasMultiplier
-  const commission = sellingPrice * commissionDecimal
-  const profit = sellingPrice - costPerPackage - (formData.actualShippingFeeKrw || 0) - adCost - commission
 
   const isPending = createOrderMutation.isPending || updateOrderMutation.isPending
 
@@ -580,51 +489,20 @@ const OrderFormPage = () => {
                   </div>
                 </div>
 
-                {/* 보관료 섹션 */}
-                <div className="border-t pt-4 mt-4">
-                  <h4 className="font-semibold mb-3">보관료 시뮬레이션</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="dailySales">하루 판매 속도 (개/일)</Label>
-                      <Input
-                        id="dailySales"
-                        type="number"
-                        min="1"
-                        value={storageFeeInputs.dailySales}
-                        onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, dailySales: Number(e.target.value) }))}
-                      />
+                <div className="bg-blue-50 p-3 rounded border mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">이 상품의 총 원가:</span>
+                      <span className="text-xl font-bold text-blue-600">
+                        {currentItem.itemTotalCostKrw.toLocaleString()}원
+                      </span>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="maxDays">최대 보관 기간 (일)</Label>
-                      <Input
-                        id="maxDays"
-                        type="number"
-                        min="1"
-                        value={storageFeeInputs.maxDays}
-                        onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, maxDays: Number(e.target.value) }))}
-                      />
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">개당 원가:</span>
+                      <span className="text-xl font-bold text-green-600">
+                        {currentItem.unitCostKrw.toLocaleString()}원
+                      </span>
                     </div>
-                  </div>
-                  {storageFeeResult && (
-                    <div className="mt-3 p-3 bg-orange-50 rounded border">
-                      <div className="flex justify-between text-sm">
-                        <span>총 보관료:</span>
-                        <span className="font-bold text-orange-600">{storageFeeResult.totalCost.toLocaleString()}원</span>
-                      </div>
-                      <div className="flex justify-between text-sm mt-1">
-                        <span>재고 소진일:</span>
-                        <span className="font-bold">{storageFeeResult.daysToSellout}일</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-blue-50 p-3 rounded border">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">이 상품의 총 원가 (원):</span>
-                    <span className="text-xl font-bold text-blue-600">
-                      {currentItem.itemTotalCostKrw.toLocaleString()}원
-                    </span>
                   </div>
                 </div>
               </div>
@@ -736,90 +614,6 @@ const OrderFormPage = () => {
               <div className="mt-2 text-sm text-gray-600">
                 = 모든 상품 원가 ({orderItems.reduce((sum, item) => sum + item.itemTotalCostKrw, 0).toLocaleString()}원) 
                 + 2차 결제 ({(formData.internationalShippingFeeKrw + formData.miscellaneousFeeKrw + formData.customsFeeKrw + formData.dutyKrw + formData.vatKrw).toLocaleString()}원)
-              </div>
-            </div>
-
-            {/* 판매가격 계산 */}
-            <div className="border p-4 rounded-md bg-muted/20">
-              <h3 className="font-semibold text-lg mb-4">판매 가격 계산</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="marginRate">마진율 (%)</Label>
-                  <Input
-                    id="marginRate"
-                    type="number"
-                    step="0.1"
-                    value={formData.marginRate}
-                    onChange={(e) => handleMarginRateChange(Number(e.target.value))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="manualSellingPrice">판매가격 직접 입력 (원)</Label>
-                  <Input
-                    id="manualSellingPrice"
-                    type="number"
-                    placeholder="마진율로 자동 계산됨"
-                    value={manualSellingPrice ?? calculatedSellingPrice}
-                    onChange={(e) => {
-                      const value = e.target.value ? Number(e.target.value) : null
-                      if (value !== null) handleSellingPriceChange(value)
-                      else setManualSellingPrice(null)
-                    }}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="roas">ROAS (배수)</Label>
-                  <Input
-                    id="roas"
-                    type="number"
-                    step="0.1"
-                    value={formData.roas}
-                    onChange={(e) => setFormData(prev => ({ ...prev, roas: Number(e.target.value) }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="actualShipping">실제 배송비 (원)</Label>
-                  <Input
-                    id="actualShipping"
-                    type="number"
-                    value={formData.actualShippingFeeKrw || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, actualShippingFeeKrw: Number(e.target.value) }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="commission">판매점 수수료율 (%)</Label>
-                  <Input
-                    id="commission"
-                    type="number"
-                    step="0.1"
-                    value={formData.marketplaceCommissionRate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marketplaceCommissionRate: Number(e.target.value) }))}
-                  />
-                </div>
-              </div>
-
-              {/* 최종 결과 */}
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-lg text-white mt-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm opacity-90 mb-1">최종 판매가격 (묶음당)</p>
-                    <p className="text-4xl font-bold">{sellingPrice.toLocaleString()}원</p>
-                    <p className="text-xs opacity-75 mt-1">
-                      총 {totalPackages.toFixed(1)}묶음
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm opacity-90 mb-1">예상 순이익</p>
-                    <p className="text-2xl font-bold text-green-300">{profit.toLocaleString()}원</p>
-                    <p className="text-xs opacity-75 mt-1">
-                      마진율: {sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
 

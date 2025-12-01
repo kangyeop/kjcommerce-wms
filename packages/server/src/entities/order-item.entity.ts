@@ -38,13 +38,13 @@ export class OrderItem extends BaseEntity {
   @Column({ name: 'domestic_shipping_fee_yuan', type: 'float', default: 0 })
   domesticShippingFeeYuan: number;
 
-  @ApiProperty({ description: '보관료 (원화)', example: 10000 })
-  @Column({ name: 'storage_fee_krw', type: 'float', default: 0 })
-  storageFeeKrw: number;
-
   @ApiProperty({ description: '아이템 총 원가 (원화)', example: 50000 })
   @Column({ name: 'item_total_cost_krw', type: 'float' })
   itemTotalCostKrw: number;
+
+  @ApiProperty({ description: '개당 원가 (원화)', example: 5000 })
+  @Column({ name: 'unit_cost_krw', type: 'float', default: 0 })
+  unitCostKrw: number;
 
   // Relationships
   @ManyToOne(() => Order, (order) => order.items, { onDelete: 'CASCADE' })

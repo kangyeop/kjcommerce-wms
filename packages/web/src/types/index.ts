@@ -7,14 +7,7 @@ export interface Product {
   cbmPerUnit: number;
   productUrl?: string;
   options?: string;
-  unitsPerPackage?: number;
-  orders?: Array<{
-    id: number;
-    quantity: number;
-    totalCostKrw: number;
-    sellingPriceKrw: number;
-    orderDate: string;
-  }>;
+  unitsPerPackage: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,7 +21,7 @@ export interface ExchangeRate {
   createdAt: string;
 }
 
-// 발주 아이템 타입 정의
+// 발주 아이템 타입
 export interface OrderItem {
   id?: number;
   orderId?: number;
@@ -40,8 +33,8 @@ export interface OrderItem {
   inspectionFeeYuan: number;
   packagingFeeYuan: number;
   domesticShippingFeeYuan: number;
-  storageFeeKrw: number;
   itemTotalCostKrw: number;
+  unitCostKrw: number;
 }
 
 // 발주 타입 정의
@@ -56,23 +49,26 @@ export interface Order {
   dutyKrw: number;
   vatKrw: number;
   totalCostKrw: number;
-  marginRate: number;
-  roas: number;
-  actualShippingFeeKrw: number;
-  marketplaceCommissionRate: number;
-  sellingPriceKrw: number;
   orderDate: string;
   createdAt: string;
   updatedAt: string;
 }
 
 // 판매가격 정보 타입
-export interface SellingPriceInfo {
+export interface Pricing {
+  id: number;
   orderId: number;
-  totalCostKrw: number;
+  orderItemId: number;
+  storageFeeKrw: number;
   marginRate: number;
+  roas: number;
+  actualShippingFeeKrw: number;
+  marketplaceCommissionRate: number;
   sellingPriceKrw: number;
+  adCostKrw: number;
   profitKrw: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // 발주 아이템 생성 DTO
@@ -84,8 +80,8 @@ export interface CreateOrderItemDto {
   inspectionFeeYuan: number;
   packagingFeeYuan: number;
   domesticShippingFeeYuan?: number;
-  storageFeeKrw?: number;
   itemTotalCostKrw: number;
+  unitCostKrw?: number;
 }
 
 // 발주 생성 DTO
@@ -99,20 +95,30 @@ export interface CreateOrderDto {
   dutyKrw: number;
   vatKrw: number;
   totalCostKrw: number;
+  orderDate: string;
+}
+
+// 판매가격 생성 DTO
+export interface CreatePricingDto {
+  orderId: number;
+  orderItemId: number;
+  storageFeeKrw?: number;
   marginRate?: number;
   roas?: number;
   actualShippingFeeKrw?: number;
   marketplaceCommissionRate?: number;
-  orderDate: string;
-  sellingPriceKrw?: number;
+  sellingPriceKrw: number;
+  adCostKrw?: number;
+  profitKrw?: number;
 }
 
-// 발주 수정 DTO
-export type UpdateOrderDto = Partial<CreateOrderDto>;
-
-// API 응답 타입
-export interface ApiResponse<T> {
-  data: T;
-  message?: string;
-  error?: string;
+// 제품 생성 DTO
+export interface CreateProductDto {
+  name: string;
+  pricePerUnitYuan: number;
+  weightPerUnit: number;
+  cbmPerUnit: number;
+  productUrl?: string;
+  options?: string;
+  unitsPerPackage: number;
 }

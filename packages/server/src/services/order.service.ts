@@ -18,12 +18,7 @@ export class OrderService {
       dutyKrw: createOrderDto.dutyKrw,
       vatKrw: createOrderDto.vatKrw,
       totalCostKrw: createOrderDto.totalCostKrw,
-      marginRate: createOrderDto.marginRate || 0,
-      roas: createOrderDto.roas || 0,
-      actualShippingFeeKrw: createOrderDto.actualShippingFeeKrw || 0,
-      marketplaceCommissionRate: createOrderDto.marketplaceCommissionRate || 10,
       orderDate: createOrderDto.orderDate,
-      sellingPriceKrw: createOrderDto.sellingPriceKrw,
       items: createOrderDto.items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -32,8 +27,8 @@ export class OrderService {
         inspectionFeeYuan: item.inspectionFeeYuan,
         packagingFeeYuan: item.packagingFeeYuan,
         domesticShippingFeeYuan: item.domesticShippingFeeYuan || 0,
-        storageFeeKrw: item.storageFeeKrw || 0,
         itemTotalCostKrw: item.itemTotalCostKrw,
+        unitCostKrw: item.unitCostKrw || 0,
       })),
     });
 
@@ -83,12 +78,7 @@ export class OrderService {
       dutyKrw: updateOrderDto.dutyKrw ?? order.dutyKrw,
       vatKrw: updateOrderDto.vatKrw ?? order.vatKrw,
       totalCostKrw: updateOrderDto.totalCostKrw ?? order.totalCostKrw,
-      marginRate: updateOrderDto.marginRate ?? order.marginRate,
-      roas: updateOrderDto.roas ?? order.roas,
-      actualShippingFeeKrw: updateOrderDto.actualShippingFeeKrw ?? order.actualShippingFeeKrw,
-      marketplaceCommissionRate: updateOrderDto.marketplaceCommissionRate ?? order.marketplaceCommissionRate,
       orderDate: updateOrderDto.orderDate ?? order.orderDate,
-      sellingPriceKrw: updateOrderDto.sellingPriceKrw ?? order.sellingPriceKrw,
     });
 
     // Update items if provided
@@ -101,8 +91,8 @@ export class OrderService {
         inspectionFeeYuan: item.inspectionFeeYuan,
         packagingFeeYuan: item.packagingFeeYuan,
         domesticShippingFeeYuan: item.domesticShippingFeeYuan || 0,
-        storageFeeKrw: item.storageFeeKrw || 0,
         itemTotalCostKrw: item.itemTotalCostKrw,
+        unitCostKrw: item.unitCostKrw || 0,
       })) as any;
     }
 
@@ -112,29 +102,5 @@ export class OrderService {
   async remove(id: number): Promise<void> {
     const order = await this.findOne(id);
     await this.orderRepository.remove(order);
-  }
-
-  /**
-   * 특정 발주의 판매가격 정보 조회
-   * @param id 발주 ID
-   * @returns 판매가격 정보
-   */
-  async getSellingPriceInfo(id: number): Promise<{
-    orderId: number;
-    totalCostKrw: number;
-    marginRate: number;
-    sellingPriceKrw: number;
-    profitKrw: number;
-  }> {
-    const order = await this.findOne(id);
-    const profitKrw = order.sellingPriceKrw - order.totalCostKrw;
-
-    return {
-      orderId: order.id,
-      totalCostKrw: order.totalCostKrw,
-      marginRate: order.marginRate,
-      sellingPriceKrw: order.sellingPriceKrw,
-      profitKrw,
-    };
   }
 }

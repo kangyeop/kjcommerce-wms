@@ -50,26 +50,6 @@ export class OrderController {
     return this.orderService.findOne(id);
   }
 
-  @Get(':id/selling-price')
-  @ApiOperation({ summary: '발주의 판매가격 정보 조회' })
-  @ApiResponse({
-    status: 200,
-    description: '판매가격 정보',
-    schema: {
-      properties: {
-        orderId: { type: 'number' },
-        totalCostKrw: { type: 'number' },
-        marginRate: { type: 'number' },
-        sellingPriceKrw: { type: 'number' },
-        profitKrw: { type: 'number' },
-      },
-    },
-  })
-  @ApiResponse({ status: 404, description: '발주를 찾을 수 없음' })
-  getSellingPriceInfo(@Param('id', ParseIntPipe) id: number) {
-    return this.orderService.getSellingPriceInfo(id);
-  }
-
   @Put(':id')
   @ApiOperation({ summary: '발주 정보 수정' })
   @ApiResponse({ status: 200, description: '수정된 발주 정보', type: Order })

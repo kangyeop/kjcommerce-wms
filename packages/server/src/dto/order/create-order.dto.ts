@@ -65,38 +65,8 @@ export class CreateOrderDto {
   @Type(() => Number)
   totalCostKrw: number;
 
-  @ApiProperty({ description: '마진율 (%)', example: 30, required: false, default: 0 })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  marginRate?: number;
-
-  @ApiProperty({ description: 'ROAS (광고비 비율 %)', example: 20, required: false, default: 0 })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  roas?: number;
-
-  @ApiProperty({ description: '실제 배송비 (원화)', example: 3000, required: false, default: 0 })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  actualShippingFeeKrw?: number;
-
-  @ApiProperty({ description: '온라인 판매점 수수료율 (%)', example: 10, required: false, default: 10 })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  marketplaceCommissionRate?: number;
-
   @ApiProperty({ description: '발주일', example: '2024-01-15' })
   @IsNotEmpty()
   @IsDateString()
   orderDate: string;
-
-  @ApiProperty({ description: '판매가격 (원화)', example: 15000, required: false })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  sellingPriceKrw?: number;
 }

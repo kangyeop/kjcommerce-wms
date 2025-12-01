@@ -27,7 +27,7 @@ const ProductRegistrationPage = () => {
       cbmPerUnit: number;
       productUrl?: string;
       options?: string;
-      unitsPerPackage?: number;
+      unitsPerPackage: number;
     }) => productService.create(newProduct),
     onSuccess: () => {
       // 제품 생성 성공 시 제품 목록 재조회
@@ -56,10 +56,10 @@ const ProductRegistrationPage = () => {
         name: string;
         pricePerUnitYuan: number;
         weightPerUnit: number;
-        cbmPerUnit: number; // Added cbmPerUnit
+        cbmPerUnit: number;
         productUrl?: string;
         options?: string;
-        unitsPerPackage?: number;
+        unitsPerPackage: number;
       };
     }) => productService.update(id, data),
     onSuccess: () => {
@@ -114,7 +114,7 @@ const ProductRegistrationPage = () => {
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
       cbmPerUnit: parseFloat(formData.cbmPerUnit) || 0,
-      unitsPerPackage: parseInt(formData.unitsPerPackage) || 1,
+      unitsPerPackage: parseInt(formData.unitsPerPackage || '1'), // Ensure default '1' if empty string
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
     };

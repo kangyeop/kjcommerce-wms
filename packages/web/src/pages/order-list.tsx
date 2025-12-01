@@ -62,16 +62,18 @@ const OrderListPage = () => {
                     <th className="text-left p-3 font-medium">상품 수</th>
                     <th className="text-left p-3 font-medium">상품 목록</th>
                     <th className="text-right p-3 font-medium">총 원가</th>
-                    <th className="text-right p-3 font-medium">마진율</th>
-                    <th className="text-right p-3 font-medium">판매가격</th>
-                    <th className="text-right p-3 font-medium">예상 이익</th>
                     <th className="text-left p-3 font-medium">발주일</th>
                     <th className="text-center p-3 font-medium">액션</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orders.map((order) => {
-                    const profit = order.sellingPriceKrw - order.totalCostKrw;
+                    // 하위 호환성: items가 없는 구버전 데이터 처리
+                    const hasItems = order.items && order.items.length > 0;
+                    const itemCount = hasItems ? order.items.length : 1;
+                    const productNames = hasItems 
+                      ? order.items.map(item => item.product?.name).filter(Boolean).join(', ')
+                      : (order as any).product?.name || '-';
                     
                     return (
                       <tr
@@ -82,20 +84,13 @@ const OrderListPage = () => {
                         <td className="p-3">{order.id}</td>
                         <td className="p-3">
                           <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold">
-                            {order.items?.length || 0}개 상품
+                            {itemCount}개 상품
                           </span>
                         </td>
                         <td className="p-3 font-medium max-w-xs truncate">
-                          {order.items?.map(item => item.product?.name).filter(Boolean).join(', ') || '-'}
+                          {productNames}
                         </td>
                         <td className="text-right p-3">{order.totalCostKrw.toLocaleString()}원</td>
-                        <td className="text-right p-3">{order.marginRate.toFixed(2)}%</td>
-                        <td className="text-right p-3 font-bold text-primary">
-                          {order.sellingPriceKrw.toLocaleString()}원
-                        </td>
-                        <td className="text-right p-3 font-semibold text-green-600">
-                          {profit.toLocaleString()}원
-                        </td>
                         <td className="p-3">{order.orderDate}</td>
                         <td className="text-center p-3">
                           <Button
