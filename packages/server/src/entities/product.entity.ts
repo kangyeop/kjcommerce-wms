@@ -1,6 +1,6 @@
 import { Column, Entity, OneToMany } from 'typeorm';
 import { BaseEntity } from '../common/entities/base.entity';
-import { Order } from './order.entity';
+import { OrderItem } from './order-item.entity';
 
 @Entity({ name: 'products' })
 export class Product extends BaseEntity {
@@ -26,6 +26,6 @@ export class Product extends BaseEntity {
   unitsPerPackage: number;
 
   // Relationships
-  @OneToMany(() => Order, (order) => order.product)
-  orders: Order[];
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.product)
+  orders: OrderItem[];
 }

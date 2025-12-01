@@ -28,26 +28,33 @@ export interface ExchangeRate {
   createdAt: string;
 }
 
-// 발주 타입 정의
-export interface Order {
-  id: number;
+// 발주 아이템 타입 정의
+export interface OrderItem {
+  id?: number;
+  orderId?: number;
   productId: number;
   product?: Product;
   quantity: number;
   originalCostYuan: number;
-  exchangeRate: number;
   serviceFeeYuan: number;
   inspectionFeeYuan: number;
   packagingFeeYuan: number;
   domesticShippingFeeYuan: number;
+  storageFeeKrw: number;
+  itemTotalCostKrw: number;
+}
+
+// 발주 타입 정의
+export interface Order {
+  id: number;
+  items: OrderItem[];
+  exchangeRate: number;
   internationalShippingFeeKrw: number;
-  shippingFeeKrw: number;
   miscellaneousFeeKrw: number;
   customsFeeKrw: number;
   taxableAmountKrw: number;
   dutyKrw: number;
   vatKrw: number;
-  storageFeeKrw?: number;
   totalCostKrw: number;
   marginRate: number;
   roas: number;
@@ -68,20 +75,25 @@ export interface SellingPriceInfo {
   profitKrw: number;
 }
 
-// 발주 생성 DTO
-export interface CreateOrderDto {
+// 발주 아이템 생성 DTO
+export interface CreateOrderItemDto {
   productId: number;
   quantity: number;
   originalCostYuan: number;
-  exchangeRate: number;
   serviceFeeYuan: number;
   inspectionFeeYuan: number;
   packagingFeeYuan: number;
   domesticShippingFeeYuan?: number;
-  internationalShippingFeeKrw?: number;
-  shippingFeeKrw?: number;
-  miscellaneousFeeKrw?: number;
   storageFeeKrw?: number;
+  itemTotalCostKrw: number;
+}
+
+// 발주 생성 DTO
+export interface CreateOrderDto {
+  items: CreateOrderItemDto[];
+  exchangeRate: number;
+  internationalShippingFeeKrw?: number;
+  miscellaneousFeeKrw?: number;
   customsFeeKrw: number;
   taxableAmountKrw: number;
   dutyKrw: number;

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { orderService, productService } from '@/services'
-import { CreateOrderDto, Product } from '@/types'
+import { CreateOrderDto, Product, OrderItem, CreateOrderItemDto } from '@/types'
 import { calculateStorageFee, StorageFeeOutput } from '@/lib/storage-fee-calculator'
 
 const OrderFormPage = () => {
@@ -28,17 +28,28 @@ const OrderFormPage = () => {
     enabled: isEditMode
   })
 
-  const [formData, setFormData] = useState<CreateOrderDto>({
-    productId: 0,
-    quantity: 0,
-    originalCostYuan: 0,
+  // 현재 활성 탭 (상품 인덱스)
+  const [activeTabIndex, setActiveTabIndex] = useState(0)
+
+  // 발주 아이템들 (여러 상품)
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([
+    {
+      productId: 0,
+      quantity: 0,
+      originalCostYuan: 0,
+      serviceFeeYuan: 0,
+      inspectionFeeYuan: 0,
+      packagingFeeYuan: 0,
+      domesticShippingFeeYuan: 0,
+      storageFeeKrw: 0,
+      itemTotalCostKrw: 0,
+    }
+  ])
+
+  // 전체 발주 공통 데이터
+  const [formData, setFormData] = useState({
     exchangeRate: 180,
-    serviceFeeYuan: 0,
-    inspectionFeeYuan: 0,
-    packagingFeeYuan: 0,
-    domesticShippingFeeYuan: 0,
     internationalShippingFeeKrw: 0,
-    shippingFeeKrw: 0,
     miscellaneousFeeKrw: 0,
     customsFeeKrw: 22000,
     taxableAmountKrw: 0,
@@ -46,13 +57,16 @@ const OrderFormPage = () => {
     vatKrw: 0,
     totalCostKrw: 0,
     marginRate: 30,
+    roas: 2,
+    actualShippingFeeKrw: 3000,
+    marketplaceCommissionRate: 10,
     orderDate: new Date().toISOString().split('T')[0]
   })
 
   // 판매가격 입력을 위한 별도 상태
   const [manualSellingPrice, setManualSellingPrice] = useState<number | null>(null)
 
-  // 보관료 계산을 위한 상태
+  // 보관료 계산을 위한 상태 (현재 활성 탭의 상품용)
   const [storageFeeInputs, setStorageFeeInputs] = useState({
     maxDays: 365,
     dailySales: 10
@@ -62,17 +76,10 @@ const OrderFormPage = () => {
   // 기존 데이터 로드
   useEffect(() => {
     if (existingOrder) {
+      setOrderItems(existingOrder.items || [])
       setFormData({
-        productId: existingOrder.productId,
-        quantity: existingOrder.quantity,
-        originalCostYuan: existingOrder.originalCostYuan,
         exchangeRate: existingOrder.exchangeRate,
-        serviceFeeYuan: existingOrder.serviceFeeYuan,
-        inspectionFeeYuan: existingOrder.inspectionFeeYuan,
-        packagingFeeYuan: existingOrder.packagingFeeYuan,
-        domesticShippingFeeYuan: existingOrder.domesticShippingFeeYuan || 0,
         internationalShippingFeeKrw: existingOrder.internationalShippingFeeKrw || 0,
-        shippingFeeKrw: existingOrder.shippingFeeKrw,
         miscellaneousFeeKrw: existingOrder.miscellaneousFeeKrw || 0,
         customsFeeKrw: existingOrder.customsFeeKrw,
         taxableAmountKrw: existingOrder.taxableAmountKrw,
@@ -88,11 +95,202 @@ const OrderFormPage = () => {
     }
   }, [existingOrder])
 
+  // 탭 추가 (새 상품 추가)
+  const addProductTab = () => {
+    setOrderItems([...orderItems, {
+      productId: 0,
+      quantity: 0,
+      originalCostYuan: 0,
+      serviceFeeYuan: 0,
+      inspectionFeeYuan: 0,
+      packagingFeeYuan: 0,
+      domesticShippingFeeYuan: 0,
+      storageFeeKrw: 0,
+      itemTotalCostKrw: 0,
+    }])
+    setActiveTabIndex(orderItems.length)
+  }
+
+  // 탭 삭제 (상품 제거)
+  const removeProductTab = (index: number) => {
+    if (orderItems.length === 1) {
+      alert('최소 1개의 상품은 있어야 합니다.')
+      return
+    }
+    const newItems = orderItems.filter((_, i) => i !== index)
+    setOrderItems(newItems)
+    if (activeTabIndex >= newItems.length) {
+      setActiveTabIndex(newItems.length - 1)
+    }
+  }
+
+  // 현재 활성 아이템 업데이트
+  const updateCurrentItem = (updates: Partial<OrderItem>) => {
+    const newItems = [...orderItems]
+    newItems[activeTabIndex] = { ...newItems[activeTabIndex], ...updates }
+    setOrderItems(newItems)
+  }
+
+  const currentItem = orderItems[activeTabIndex]
+
+  // 제품 선택 시 원가, 구매대행 수수료, 포장비 자동 계산
+  useEffect(() => {
+    if (currentItem.productId && currentItem.quantity) {
+      const selectedProduct = products.find(p => p.id === currentItem.productId)
+      if (selectedProduct) {
+        const originalCost = selectedProduct.pricePerUnitYuan * currentItem.quantity
+        
+        // 구매대행 수수료 계산
+        let serviceFee = 0
+        if (originalCost < 500) {
+          serviceFee = 30
+        } else if (originalCost < 1000) {
+          serviceFee = 50
+        } else {
+          serviceFee = originalCost * 0.05
+        }
+        
+        // 포장비 계산
+        const unitsPerPackage = selectedProduct.unitsPerPackage || 1
+        const packagingFee = (currentItem.quantity / unitsPerPackage) * 0.3
+        
+        updateCurrentItem({
+          originalCostYuan: originalCost,
+          serviceFeeYuan: serviceFee,
+          inspectionFeeYuan: originalCost * 0.02,
+          packagingFeeYuan: packagingFee,
+        })
+      }
+    }
+  }, [currentItem.productId, currentItem.quantity, products, activeTabIndex])
+
+  // 보관료 자동 계산 (현재 활성 탭)
+  useEffect(() => {
+    if (currentItem.productId && currentItem.quantity) {
+      const selectedProduct = products.find(p => p.id === currentItem.productId)
+      if (selectedProduct && selectedProduct.cbmPerUnit > 0) {
+        const result = calculateStorageFee({
+          maxDays: storageFeeInputs.maxDays,
+          initialQty: currentItem.quantity,
+          cbmPerUnit: selectedProduct.cbmPerUnit,
+          dailySales: storageFeeInputs.dailySales
+        })
+        setStorageFeeResult(result)
+        
+        const storageFee = Math.round(result.totalCost)
+        if (storageFee !== currentItem.storageFeeKrw) {
+          updateCurrentItem({ storageFeeKrw: storageFee })
+        }
+      } else {
+        setStorageFeeResult(null)
+        if (currentItem.storageFeeKrw !== 0) {
+          updateCurrentItem({ storageFeeKrw: 0 })
+        }
+      }
+    }
+  }, [currentItem.productId, currentItem.quantity, storageFeeInputs, products, activeTabIndex])
+
+  // 각 아이템의 총 원가 계산
+  useEffect(() => {
+    const newItems = orderItems.map(item => {
+      const originalCostKrw = item.originalCostYuan * formData.exchangeRate
+      const serviceFeeKrw = item.serviceFeeYuan * formData.exchangeRate
+      const inspectionFeeKrw = item.inspectionFeeYuan * formData.exchangeRate
+      const packagingFeeKrw = item.packagingFeeYuan * formData.exchangeRate
+      const domesticShippingKrw = (item.domesticShippingFeeYuan || 0) * formData.exchangeRate
+      
+      const itemTotal = Math.round(
+        originalCostKrw + serviceFeeKrw + inspectionFeeKrw + 
+        packagingFeeKrw + domesticShippingKrw + (item.storageFeeKrw || 0)
+      )
+      
+      return { ...item, itemTotalCostKrw: itemTotal }
+    })
+    
+    setOrderItems(newItems)
+  }, [
+    orderItems.map(i => i.originalCostYuan).join(','),
+    orderItems.map(i => i.serviceFeeYuan).join(','),
+    orderItems.map(i => i.inspectionFeeYuan).join(','),
+    orderItems.map(i => i.packagingFeeYuan).join(','),
+    orderItems.map(i => i.domesticShippingFeeYuan).join(','),
+    orderItems.map(i => i.storageFeeKrw).join(','),
+    formData.exchangeRate
+  ])
+
+  // 해외배송비 자동 계산 (모든 상품의 무게 합산)
+  useEffect(() => {
+    const totalWeightG = orderItems.reduce((sum, item) => {
+      const product = products.find(p => p.id === item.productId)
+      if (product) {
+        return sum + (product.weightPerUnit * item.quantity)
+      }
+      return sum
+    }, 0)
+    
+    const totalWeightKg = totalWeightG / 1000
+    let internationalShipping = 0
+    if (totalWeightKg <= 1) {
+      internationalShipping = 6000
+    } else {
+      internationalShipping = 6000 + Math.ceil((totalWeightKg - 1) * 1600)
+    }
+    
+    if (internationalShipping !== formData.internationalShippingFeeKrw) {
+      setFormData(prev => ({ ...prev, internationalShippingFeeKrw: internationalShipping }))
+    }
+  }, [orderItems, products])
+
+  // 과세가격, 관세, 부가세 자동 계산 (모든 상품의 원가 합산)
+  useEffect(() => {
+    const totalProductPriceYuan = orderItems.reduce((sum, item) => sum + item.originalCostYuan, 0)
+    const productPriceKrw = totalProductPriceYuan * formData.exchangeRate
+    const taxableAmount = Math.round(productPriceKrw)
+    
+    const duty = Math.round(taxableAmount * 0.08)
+    const vat = Math.round((taxableAmount + duty) * 0.10)
+    
+    if (taxableAmount !== formData.taxableAmountKrw || 
+        duty !== formData.dutyKrw || 
+        vat !== formData.vatKrw) {
+      setFormData(prev => ({
+        ...prev,
+        taxableAmountKrw: taxableAmount,
+        dutyKrw: duty,
+        vatKrw: vat
+      }))
+    }
+  }, [orderItems, formData.exchangeRate])
+
+  // 총 원가 자동 계산
+  useEffect(() => {
+    const itemsTotal = orderItems.reduce((sum, item) => sum + item.itemTotalCostKrw, 0)
+    const totalCost = itemsTotal +
+                      (formData.internationalShippingFeeKrw || 0) +
+                      (formData.miscellaneousFeeKrw || 0) +
+                      formData.customsFeeKrw +
+                      formData.dutyKrw +
+                      formData.vatKrw
+    
+    const roundedTotalCost = Math.round(totalCost)
+
+    if (roundedTotalCost !== formData.totalCostKrw) {
+      setFormData(prev => ({ ...prev, totalCostKrw: roundedTotalCost }))
+    }
+  }, [
+    orderItems,
+    formData.internationalShippingFeeKrw,
+    formData.miscellaneousFeeKrw,
+    formData.customsFeeKrw,
+    formData.dutyKrw,
+    formData.vatKrw
+  ])
+
   // 발주 생성 mutation
   const createOrderMutation = useMutation({
     mutationFn: (newOrder: CreateOrderDto) => orderService.create({
       ...newOrder,
-      sellingPriceKrw: sellingPrice // 계산된 판매가격 포함
+      sellingPriceKrw: sellingPrice
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
@@ -108,7 +306,7 @@ const OrderFormPage = () => {
   const updateOrderMutation = useMutation({
     mutationFn: (updatedOrder: CreateOrderDto) => orderService.update(Number(id), {
       ...updatedOrder,
-      sellingPriceKrw: sellingPrice // 계산된 판매가격 포함
+      sellingPriceKrw: sellingPrice
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
@@ -134,170 +332,40 @@ const OrderFormPage = () => {
     }
   })
 
-  // 보관료 자동 계산
-  useEffect(() => {
-    if (formData.productId && formData.quantity) {
-      const selectedProduct = products.find(p => p.id === formData.productId)
-      if (selectedProduct && selectedProduct.cbmPerUnit > 0) {
-        const result = calculateStorageFee({
-          maxDays: storageFeeInputs.maxDays,
-          initialQty: formData.quantity,
-          cbmPerUnit: selectedProduct.cbmPerUnit,
-          dailySales: storageFeeInputs.dailySales
-        })
-        setStorageFeeResult(result)
-        
-        // 보관료를 원화로 변환하여 formData 업데이트
-        // 보관료는 위안화 기준이므로 환율 적용 필요 (기준표가 원화인지 위안화인지 확인 필요)
-        // 스펙상 "1,000원/CBM/일" 이므로 원화 기준임. 환율 적용 불필요.
-        const storageFee = Math.round(result.totalCost)
-        
-        if (storageFee !== formData.storageFeeKrw) {
-          setFormData(prev => ({
-            ...prev,
-            storageFeeKrw: storageFee
-          }))
-        }
-      } else {
-        setStorageFeeResult(null)
-        if (formData.storageFeeKrw !== 0) {
-          setFormData(prev => ({
-            ...prev,
-            storageFeeKrw: 0
-          }))
-        }
-      }
-    }
-  }, [formData.productId, formData.quantity, storageFeeInputs, products])
-
-  // 제품 선택 시 원가, 구매대행 수수료, 포장비, 해외배송비 자동 계산
-  useEffect(() => {
-    if (formData.productId && formData.quantity) {
-      const selectedProduct = products.find(p => p.id === formData.productId)
-      if (selectedProduct) {
-        const originalCost = selectedProduct.pricePerUnitYuan * formData.quantity
-        
-        // 구매대행 수수료 계산
-        // 총 구매금액(원가 * 수량)이 500위안 미만이면 30위안, 500~999면 50위안, 1000위안 이상은 5%
-        let serviceFee = 0
-        if (originalCost < 500) {
-          serviceFee = 30
-        } else if (originalCost < 1000) {
-          serviceFee = 50
-        } else {
-          serviceFee = originalCost * 0.05
-        }
-        
-        // 포장비 계산: (구매수량 / 판매단위) * 0.3위안
-        const unitsPerPackage = selectedProduct.unitsPerPackage || 1
-        const packagingFee = (formData.quantity / unitsPerPackage) * 0.3
-        
-        // 해외배송비 계산: 개당 무게(g) * 구매수량 / 1000 = kg
-        // 1kg까지 6000원, 이후 kg당 1600원
-        const totalWeightKg = (selectedProduct.weightPerUnit * formData.quantity) / 1000
-        let internationalShipping = 0
-        if (totalWeightKg <= 1) {
-          internationalShipping = 6000
-        } else {
-          internationalShipping = 6000 + Math.ceil((totalWeightKg - 1) * 1600)
-        }
-        
-        // 값이 실제로 변경되었을 때만 업데이트 (무한 루프 방지)
-        if (originalCost !== formData.originalCostYuan || 
-            serviceFee !== formData.serviceFeeYuan ||
-            packagingFee !== formData.packagingFeeYuan ||
-            internationalShipping !== formData.internationalShippingFeeKrw) {
-          setFormData(prev => ({
-            ...prev,
-            originalCostYuan: originalCost,
-            serviceFeeYuan: serviceFee,
-            inspectionFeeYuan: originalCost * 0.02, // 검품비 2%
-            packagingFeeYuan: packagingFee,
-            internationalShippingFeeKrw: internationalShipping
-          }))
-        }
-      }
-    }
-  }, [formData.productId, formData.quantity, products])
-
-  // 총 배송비 계산 (중국내 + 해외)
-  useEffect(() => {
-    const domesticShippingKrw = (formData.domesticShippingFeeYuan || 0) * formData.exchangeRate
-    const totalShipping = Math.round(domesticShippingKrw + (formData.internationalShippingFeeKrw || 0))
-    
-    if (totalShipping !== formData.shippingFeeKrw) {
-      setFormData(prev => ({
-        ...prev,
-        shippingFeeKrw: totalShipping
-      }))
-    }
-  }, [formData.domesticShippingFeeYuan, formData.internationalShippingFeeKrw, formData.exchangeRate])
-
-  // 과세가격, 관세, 부가세 자동 계산
-  useEffect(() => {
-    // 과세 가격 = 상품 가격 X 관세청 고시환율 (배송비 제외)
-    const productPriceKrw = formData.originalCostYuan * formData.exchangeRate
-    const taxableAmount = Math.round(productPriceKrw)
-    
-    // 관세 = 과세가격 X 8%
-    const duty = Math.round(taxableAmount * 0.08)
-    
-    // 부가세 = (과세가격 + 관세) X 10%
-    const vat = Math.round((taxableAmount + duty) * 0.10)
-    
-    // 값이 변경되었을 때만 업데이트
-    if (taxableAmount !== formData.taxableAmountKrw || 
-        duty !== formData.dutyKrw || 
-        vat !== formData.vatKrw) {
-      setFormData(prev => ({
-        ...prev,
-        taxableAmountKrw: taxableAmount,
-        dutyKrw: duty,
-        vatKrw: vat
-      }))
-    }
-  }, [formData.originalCostYuan, formData.exchangeRate])
-
-  // 총 원가 자동 계산
-  useEffect(() => {
-    const originalCostKrw = formData.originalCostYuan * formData.exchangeRate
-    const serviceFeeKrw = formData.serviceFeeYuan * formData.exchangeRate
-    const inspectionFeeKrw = formData.inspectionFeeYuan * formData.exchangeRate
-    const packagingFeeKrw = formData.packagingFeeYuan * formData.exchangeRate
-    
-    const totalCost = originalCostKrw + serviceFeeKrw + inspectionFeeKrw + packagingFeeKrw +
-                      (formData.shippingFeeKrw || 0) + (formData.miscellaneousFeeKrw || 0) +
-                      (formData.storageFeeKrw || 0) + // 보관료 추가
-                      formData.customsFeeKrw + formData.dutyKrw + formData.vatKrw
-    
-    const roundedTotalCost = Math.round(totalCost)
-
-    if (roundedTotalCost !== formData.totalCostKrw) {
-      setFormData(prev => ({
-        ...prev,
-        totalCostKrw: roundedTotalCost
-      }))
-    }
-  }, [
-    formData.originalCostYuan,
-    formData.exchangeRate,
-    formData.serviceFeeYuan,
-    formData.inspectionFeeYuan,
-    formData.packagingFeeYuan,
-    formData.shippingFeeKrw,
-    formData.miscellaneousFeeKrw,
-    formData.storageFeeKrw, // 의존성 추가
-    formData.customsFeeKrw,
-    formData.dutyKrw,
-    formData.vatKrw
-  ])
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    const orderDto: CreateOrderDto = {
+      items: orderItems.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        originalCostYuan: item.originalCostYuan,
+        serviceFeeYuan: item.serviceFeeYuan,
+        inspectionFeeYuan: item.inspectionFeeYuan,
+        packagingFeeYuan: item.packagingFeeYuan,
+        domesticShippingFeeYuan: item.domesticShippingFeeYuan || 0,
+        storageFeeKrw: item.storageFeeKrw || 0,
+        itemTotalCostKrw: item.itemTotalCostKrw,
+      })),
+      exchangeRate: formData.exchangeRate,
+      internationalShippingFeeKrw: formData.internationalShippingFeeKrw,
+      miscellaneousFeeKrw: formData.miscellaneousFeeKrw,
+      customsFeeKrw: formData.customsFeeKrw,
+      taxableAmountKrw: formData.taxableAmountKrw,
+      dutyKrw: formData.dutyKrw,
+      vatKrw: formData.vatKrw,
+      totalCostKrw: formData.totalCostKrw,
+      marginRate: formData.marginRate,
+      roas: formData.roas,
+      actualShippingFeeKrw: formData.actualShippingFeeKrw,
+      marketplaceCommissionRate: formData.marketplaceCommissionRate,
+      orderDate: formData.orderDate,
+    }
+    
     if (isEditMode) {
-      updateOrderMutation.mutate(formData)
+      updateOrderMutation.mutate(orderDto)
     } else {
-      createOrderMutation.mutate(formData)
+      createOrderMutation.mutate(orderDto)
     }
   }
 
@@ -311,21 +379,19 @@ const OrderFormPage = () => {
   const handleSellingPriceChange = (sellingPrice: number) => {
     setManualSellingPrice(sellingPrice)
     
-    const selectedProduct = products.find(p => p.id === formData.productId)
-    const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
-    const packageCount = formData.quantity / unitsPerPackage
-    const costPerPackage = packageCount > 0 ? formData.totalCostKrw / packageCount : 0
+    // 전체 묶음 수 계산
+    const totalPackages = orderItems.reduce((sum, item) => {
+      const product = products.find(p => p.id === item.productId)
+      const unitsPerPackage = product?.unitsPerPackage || 1
+      return sum + (item.quantity / unitsPerPackage)
+    }, 0)
+    
+    const costPerPackage = totalPackages > 0 ? formData.totalCostKrw / totalPackages : 0
     
     if (costPerPackage === 0) return
     
     const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
     const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
-    
-    // 역산: sellingPrice = (costPerPackage + shipping) / (1 - margin - commission - roasMultiplier)
-    // sellingPrice * (1 - margin - commission - roasMultiplier) = costPerPackage + shipping
-    // sellingPrice * (1 - commission - roasMultiplier) - sellingPrice * margin = costPerPackage + shipping
-    // sellingPrice * margin = sellingPrice * (1 - commission - roasMultiplier) - costPerPackage - shipping
-    // margin = (sellingPrice * (1 - commission - roasMultiplier) - costPerPackage - shipping) / sellingPrice
     
     const profit = sellingPrice * (1 - commissionDecimal - roasMultiplier) - costPerPackage - (formData.actualShippingFeeKrw || 0)
     const marginRate = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0
@@ -340,10 +406,13 @@ const OrderFormPage = () => {
   }
 
   // 렌더링을 위한 판매가 및 이익 계산
-  const selectedProduct = products.find(p => p.id === formData.productId)
-  const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
-  const packageCount = formData.quantity / unitsPerPackage
-  const costPerPackage = packageCount > 0 ? formData.totalCostKrw / packageCount : 0
+  const totalPackages = orderItems.reduce((sum, item) => {
+    const product = products.find(p => p.id === item.productId)
+    const unitsPerPackage = product?.unitsPerPackage || 1
+    return sum + (item.quantity / unitsPerPackage)
+  }, 0)
+  
+  const costPerPackage = totalPackages > 0 ? formData.totalCostKrw / totalPackages : 0
   const marginDecimal = (formData.marginRate || 0) / 100
   const roasMultiplier = (formData.roas || 0) > 0 ? (1 / (formData.roas || 1)) : 0
   const commissionDecimal = (formData.marketplaceCommissionRate || 0) / 100
@@ -361,7 +430,7 @@ const OrderFormPage = () => {
   const isPending = createOrderMutation.isPending || updateOrderMutation.isPending
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{isEditMode ? '발주 수정' : '새 발주 등록'}</h1>
         <div className="flex gap-2">
@@ -386,37 +455,193 @@ const OrderFormPage = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 기본 정보 섹션 */}
-              <div className="space-y-4 border p-4 rounded-md">
-                <h3 className="font-semibold text-lg">기본 정보</h3>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="productId">제품</Label>
-                  <select
-                    id="productId"
-                    className="w-full border border-input rounded-md h-10 px-3"
-                    value={formData.productId}
-                    onChange={(e) => setFormData(prev => ({ ...prev, productId: Number(e.target.value) }))}
-                    required
-                  >
-                    <option value={0}>제품 선택</option>
-                    {products.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} - {product.pricePerUnitYuan.toLocaleString()}위안
-                      </option>
-                    ))}
-                  </select>
+            {/* 상품 탭 */}
+            <div className="border rounded-md p-4 bg-slate-50">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg">상품 목록</h3>
+                <Button type="button" onClick={addProductTab} variant="outline" size="sm">
+                  + 상품 추가
+                </Button>
+              </div>
+              
+              {/* 탭 헤더 */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {orderItems.map((item, index) => {
+                  const product = products.find(p => p.id === item.productId)
+                  return (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-t-md cursor-pointer transition-colors ${
+                        activeTabIndex === index
+                          ? 'bg-white border-2 border-b-0 border-blue-500 font-semibold'
+                          : 'bg-gray-200 hover:bg-gray-300'
+                      }`}
+                      onClick={() => setActiveTabIndex(index)}
+                    >
+                      <span>{product?.name || `상품 ${index + 1}`}</span>
+                      {orderItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeProductTab(index)
+                          }}
+                          className="text-red-500 hover:text-red-700 ml-2"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* 1차 결제 - 상품별 비용 */}
+              <div className="bg-white border-2 border-blue-500 rounded-b-md rounded-tr-md p-4 space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm font-bold border border-blue-200">
+                    1차 결제
+                  </span>
+                  <span className="text-sm text-gray-600">상품 매입 및 중국 내 이동 (상품별)</span>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`product-${activeTabIndex}`}>제품</Label>
+                    <select
+                      id={`product-${activeTabIndex}`}
+                      className="w-full border border-input rounded-md h-10 px-3"
+                      value={currentItem.productId}
+                      onChange={(e) => updateCurrentItem({ productId: Number(e.target.value) })}
+                      required
+                    >
+                      <option value={0}>제품 선택</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} - {product.pricePerUnitYuan.toLocaleString()}위안
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`quantity-${activeTabIndex}`}>수량</Label>
+                    <Input
+                      id={`quantity-${activeTabIndex}`}
+                      type="number"
+                      min="1"
+                      value={currentItem.quantity || ''}
+                      onChange={(e) => updateCurrentItem({ quantity: Number(e.target.value) })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>원가 (위안) - 자동계산</Label>
+                    <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                      {currentItem.originalCostYuan.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>구매대행 수수료 (위안) - 자동계산</Label>
+                    <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                      {currentItem.serviceFeeYuan.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`inspection-${activeTabIndex}`}>검품비 (위안)</Label>
+                    <Input
+                      id={`inspection-${activeTabIndex}`}
+                      type="number"
+                      step="0.01"
+                      value={currentItem.inspectionFeeYuan}
+                      onChange={(e) => updateCurrentItem({ inspectionFeeYuan: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>포장비 (위안) - 자동계산</Label>
+                    <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                      {currentItem.packagingFeeYuan.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`domestic-shipping-${activeTabIndex}`}>중국내 배송비 (위안)</Label>
+                    <Input
+                      id={`domestic-shipping-${activeTabIndex}`}
+                      type="number"
+                      step="0.01"
+                      value={currentItem.domesticShippingFeeYuan || ''}
+                      onChange={(e) => updateCurrentItem({ domesticShippingFeeYuan: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                {/* 보관료 섹션 */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-semibold mb-3">보관료 시뮬레이션</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="dailySales">하루 판매 속도 (개/일)</Label>
+                      <Input
+                        id="dailySales"
+                        type="number"
+                        min="1"
+                        value={storageFeeInputs.dailySales}
+                        onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, dailySales: Number(e.target.value) }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="maxDays">최대 보관 기간 (일)</Label>
+                      <Input
+                        id="maxDays"
+                        type="number"
+                        min="1"
+                        value={storageFeeInputs.maxDays}
+                        onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, maxDays: Number(e.target.value) }))}
+                      />
+                    </div>
+                  </div>
+                  {storageFeeResult && (
+                    <div className="mt-3 p-3 bg-orange-50 rounded border">
+                      <div className="flex justify-between text-sm">
+                        <span>총 보관료:</span>
+                        <span className="font-bold text-orange-600">{storageFeeResult.totalCost.toLocaleString()}원</span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-1">
+                        <span>재고 소진일:</span>
+                        <span className="font-bold">{storageFeeResult.daysToSellout}일</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-blue-50 p-3 rounded border">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">이 상품의 총 원가 (원):</span>
+                    <span className="text-xl font-bold text-blue-600">
+                      {currentItem.itemTotalCostKrw.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 기본 정보 */}
+            <div className="border p-4 rounded-md">
+              <h3 className="font-semibold text-lg mb-4">기본 정보</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">수량</Label>
+                  <Label htmlFor="exchangeRate">환율 (1위안 = x원)</Label>
                   <Input
-                    id="quantity"
+                    id="exchangeRate"
                     type="number"
-                    min="1"
-                    value={formData.quantity || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, quantity: Number(e.target.value) }))}
+                    step="0.01"
+                    value={formData.exchangeRate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, exchangeRate: Number(e.target.value) }))}
                     required
                   />
                 </div>
@@ -432,323 +657,92 @@ const OrderFormPage = () => {
                   />
                 </div>
               </div>
-
-              {/* 환율 및 원가 섹션 */}
-              <div className="space-y-4 border p-4 rounded-md">
-                <h3 className="font-semibold text-lg">비용 및 환율</h3>
-
-                <div className="space-y-2">
-                  <Label htmlFor="exchangeRate">환율 (1위안 = x원)</Label>
-                  <Input
-                    id="exchangeRate"
-                    type="number"
-                    step="0.01"
-                    value={formData.exchangeRate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, exchangeRate: Number(e.target.value) }))}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>원가 (위안) - 자동계산</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
-                    {formData.originalCostYuan.toLocaleString()}
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* 보관료 섹션 */}
-            <div className="border p-4 rounded-md bg-orange-50/50">
-              <h3 className="font-semibold text-lg mb-4">보관료 시뮬레이션</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="dailySales">하루 판매 속도 (개/일)</Label>
-                    <Input
-                      id="dailySales"
-                      type="number"
-                      min="1"
-                      value={storageFeeInputs.dailySales}
-                      onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, dailySales: Number(e.target.value) }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="maxDays">최대 보관 기간 (일)</Label>
-                    <Input
-                      id="maxDays"
-                      type="number"
-                      min="1"
-                      value={storageFeeInputs.maxDays}
-                      onChange={(e) => setStorageFeeInputs(prev => ({ ...prev, maxDays: Number(e.target.value) }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded border shadow-sm">
-                  <h4 className="font-medium mb-2">계산 결과</h4>
-                  {storageFeeResult ? (
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">총 보관료:</span>
-                        <span className="font-bold text-orange-600">{storageFeeResult.totalCost.toLocaleString()}원</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">재고 소진일:</span>
-                        <span className="font-bold">{storageFeeResult.daysToSellout}일</span>
-                      </div>
-                      <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
-                        * 제품 CBM: {products.find(p => p.id === formData.productId)?.cbmPerUnit || 0}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground text-sm py-4 text-center">
-                      제품을 선택하고 CBM 정보가 있어야 계산됩니다.
-                    </div>
-                  )}
-                </div>
+            {/* 2차 결제 - 전체 합산 비용 */}
+            <div className="border p-4 rounded-md bg-green-50/50">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="bg-green-100 text-green-700 px-3 py-1 rounded text-sm font-bold border border-green-200">
+                  2차 결제
+                </span>
+                <span className="text-sm text-gray-600">국제 배송 및 통관 (전체 합산)</span>
               </div>
-            </div>
 
-            {/* 상세 비용 섹션 */}
-            <div className="border p-4 rounded-md">
-              <h3 className="font-semibold text-lg mb-4">상세 비용 (원화/위안)</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>구매대행 수수료 (위안) - 자동계산</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
-                    {formData.serviceFeeYuan.toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    500위안 미만: 30위안 | 500-999위안: 50위안 | 1000위안 이상: 5%
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="inspectionFeeYuan">검품비 (위안)</Label>
+                  <Label htmlFor="internationalShipping">해외 배송비 (원) - 자동계산/수정가능</Label>
                   <Input
-                    id="inspectionFeeYuan"
-                    type="number"
-                    step="0.01"
-                    value={formData.inspectionFeeYuan}
-                    onChange={(e) => setFormData(prev => ({ ...prev, inspectionFeeYuan: Number(e.target.value) }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>포장비 (위안) - 자동계산</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
-                    {formData.packagingFeeYuan.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {(() => {
-                      const selectedProduct = products.find(p => p.id === formData.productId)
-                      const unitsPerPackage = selectedProduct?.unitsPerPackage || 1
-                      return `(수량 ${formData.quantity} / 판매단위 ${unitsPerPackage}) × 0.3위안`
-                    })()}
-                  </p>
-                  <p className="text-xs font-semibold">
-                    = {(formData.packagingFeeYuan * formData.exchangeRate).toLocaleString()}원
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="domesticShippingFeeYuan">중국내 배송비 (위안)</Label>
-                  <Input
-                    id="domesticShippingFeeYuan"
-                    type="number"
-                    step="0.01"
-                    value={formData.domesticShippingFeeYuan || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, domesticShippingFeeYuan: Number(e.target.value) }))}
-                  />
-                  <p className="text-xs font-semibold">
-                    = {((formData.domesticShippingFeeYuan || 0) * formData.exchangeRate).toLocaleString()}원
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="internationalShippingFeeKrw">해외 배송비 (원) - 자동계산/수정가능</Label>
-                  <Input
-                    id="internationalShippingFeeKrw"
+                    id="internationalShipping"
                     type="number"
                     value={formData.internationalShippingFeeKrw || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, internationalShippingFeeKrw: Number(e.target.value) }))}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {(() => {
-                      const selectedProduct = products.find(p => p.id === formData.productId)
-                      const totalWeightG = (selectedProduct?.weightPerUnit || 0) * formData.quantity
-                      const totalWeightKg = totalWeightG / 1000
-                      return `총 무게: ${totalWeightG.toLocaleString()}g (${totalWeightKg.toFixed(2)}kg) | 1kg까지 6000원, 이후 kg당 1600원`
-                    })()}
+                    전체 무게 기준 자동 계산
                   </p>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Label>총 배송비 (원) - 자동계산</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-semibold">
-                    {(formData.shippingFeeKrw || 0).toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    중국내 + 해외 배송비
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="miscellaneousFeeKrw">기타 비용 (원)</Label>
+                  <Label htmlFor="miscellaneous">기타 비용 (원)</Label>
                   <Input
-                    id="miscellaneousFeeKrw"
+                    id="miscellaneous"
                     type="number"
                     value={formData.miscellaneousFeeKrw || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, miscellaneousFeeKrw: Number(e.target.value) }))}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label>과세가격 (원) - 자동계산</Label>
                   <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
                     {formData.taxableAmountKrw.toLocaleString()}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    상품가격 × 환율
-                  </p>
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="customsFeeKrw">통관비 (원)</Label>
+                  <Label htmlFor="customs">통관비 (원)</Label>
                   <Input
-                    id="customsFeeKrw"
+                    id="customs"
                     type="number"
                     value={formData.customsFeeKrw}
                     onChange={(e) => setFormData(prev => ({ ...prev, customsFeeKrw: Number(e.target.value) }))}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label>관세 (원) - 자동계산</Label>
                   <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
                     {formData.dutyKrw.toLocaleString()}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    과세가격 × 8%
-                  </p>
                 </div>
+
                 <div className="space-y-2">
                   <Label>부가세 (원) - 자동계산</Label>
                   <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
                     {formData.vatKrw.toLocaleString()}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    (과세가격 + 관세) × 10%
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* 비용 상세 내역 섹션 */}
-            <div className="border p-4 rounded-md bg-blue-50/50 space-y-6">
+            {/* 총 원가 표시 */}
+            <div className="border-2 border-blue-600 p-4 rounded-md bg-blue-50">
               <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-lg">비용 상세 내역 (총 원가 구성)</h3>
-                <div className="bg-blue-600 text-white px-4 py-2 rounded-md font-bold shadow-sm">
-                  총 원가: {formData.totalCostKrw.toLocaleString()}원
+                <h3 className="font-semibold text-lg">전체 발주 총 원가</h3>
+                <div className="text-3xl font-bold text-blue-600">
+                  {formData.totalCostKrw.toLocaleString()}원
                 </div>
               </div>
-
-              {/* 1차 결제 */}
-              <div className="bg-white/50 p-3 rounded-md border border-blue-100">
-                <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
-                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">1차 결제</span>
-                  <span className="text-sm">상품 매입 및 중국 내 이동</span>
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">원가 (위안)</p>
-                    <p className="font-semibold">{formData.originalCostYuan.toLocaleString()} 위안</p>
-                    <p className="text-sm text-blue-600">= {(formData.originalCostYuan * formData.exchangeRate).toLocaleString()}원</p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">구매대행 수수료 (위안)</p>
-                    <p className="font-semibold">{formData.serviceFeeYuan.toLocaleString()} 위안</p>
-                    <p className="text-sm text-blue-600">= {(formData.serviceFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
-                  </div>
-
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">중국내 배송비 (위안)</p>
-                    <p className="font-semibold">{(formData.domesticShippingFeeYuan || 0).toLocaleString()} 위안</p>
-                    <p className="text-sm text-blue-600">= {((formData.domesticShippingFeeYuan || 0) * formData.exchangeRate).toLocaleString()}원</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2차 결제 */}
-              <div className="bg-white/50 p-3 rounded-md border border-blue-100">
-                <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
-                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">2차 결제</span>
-                  <span className="text-sm">국제 배송 및 기타</span>
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">검품비 (위안)</p>
-                    <p className="font-semibold">{formData.inspectionFeeYuan.toLocaleString()} 위안</p>
-                    <p className="text-sm text-blue-600">= {(formData.inspectionFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">포장비 (위안)</p>
-                    <p className="font-semibold">{formData.packagingFeeYuan.toFixed(2)} 위안</p>
-                    <p className="text-sm text-blue-600">= {(formData.packagingFeeYuan * formData.exchangeRate).toLocaleString()}원</p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">해외 배송비</p>
-                    <p className="font-semibold text-blue-600">{(formData.internationalShippingFeeKrw || 0).toLocaleString()}원</p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">기타 비용</p>
-                    <p className="font-semibold text-blue-600">{(formData.miscellaneousFeeKrw || 0).toLocaleString()}원</p>
-                  </div>
-
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">보관료 (예상)</p>
-                    <p className="font-semibold text-orange-600">{(formData.storageFeeKrw || 0).toLocaleString()}원</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3차 결제 */}
-              <div className="bg-white/50 p-3 rounded-md border border-blue-100">
-                <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
-                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">3차 결제</span>
-                  <span className="text-sm">통관 및 세금</span>
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">통관비</p>
-                    <p className="font-semibold text-blue-600">{formData.customsFeeKrw.toLocaleString()}원</p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">관세</p>
-                    <p className="font-semibold text-blue-600">{formData.dutyKrw.toLocaleString()}원</p>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-1">부가세</p>
-                    <p className="font-semibold text-blue-600">{formData.vatKrw.toLocaleString()}원</p>
-                  </div>
-                </div>
+              <div className="mt-2 text-sm text-gray-600">
+                = 모든 상품 원가 ({orderItems.reduce((sum, item) => sum + item.itemTotalCostKrw, 0).toLocaleString()}원) 
+                + 2차 결제 ({(formData.internationalShippingFeeKrw + formData.miscellaneousFeeKrw + formData.customsFeeKrw + formData.dutyKrw + formData.vatKrw).toLocaleString()}원)
               </div>
             </div>
 
-            {/* 결과 섹션 */}
-
+            {/* 판매가격 계산 */}
             <div className="border p-4 rounded-md bg-muted/20">
               <h3 className="font-semibold text-lg mb-4">판매 가격 계산</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>총 원가 (원)</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-semibold">
-                    {formData.totalCostKrw.toLocaleString()}
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="marginRate">마진율 (%)</Label>
                   <Input
@@ -758,9 +752,6 @@ const OrderFormPage = () => {
                     value={formData.marginRate}
                     onChange={(e) => handleMarginRateChange(Number(e.target.value))}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {manualSellingPrice ? '⚠️ 판매가격 직접 입력 중' : '✓ 마진율로 계산'}
-                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -776,9 +767,6 @@ const OrderFormPage = () => {
                       else setManualSellingPrice(null)
                     }}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    판매가격 입력 시 마진율 자동 계산
-                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -790,15 +778,12 @@ const OrderFormPage = () => {
                     value={formData.roas}
                     onChange={(e) => setFormData(prev => ({ ...prev, roas: Number(e.target.value) }))}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    예: 2 = 2배 (광고비는 판매가의 1/2)
-                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="actualShippingFeeKrw">실제 배송비 (원)</Label>
+                  <Label htmlFor="actualShipping">실제 배송비 (원)</Label>
                   <Input
-                    id="actualShippingFeeKrw"
+                    id="actualShipping"
                     type="number"
                     value={formData.actualShippingFeeKrw || 0}
                     onChange={(e) => setFormData(prev => ({ ...prev, actualShippingFeeKrw: Number(e.target.value) }))}
@@ -806,9 +791,9 @@ const OrderFormPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="marketplaceCommissionRate">판매점 수수료율 (%)</Label>
+                  <Label htmlFor="commission">판매점 수수료율 (%)</Label>
                   <Input
-                    id="marketplaceCommissionRate"
+                    id="commission"
                     type="number"
                     step="0.1"
                     value={formData.marketplaceCommissionRate}
@@ -816,125 +801,25 @@ const OrderFormPage = () => {
                   />
                 </div>
               </div>
-            </div>
 
-            {/* 판매가격 계산 상세 */}
-            <div className="border-2 border-primary/20 p-6 rounded-md bg-gradient-to-br from-blue-50 to-indigo-50">
-              <h3 className="font-bold text-xl mb-4 text-primary">📊 판매가격 계산 상세</h3>
-              <div className="space-y-4">
-                    {/* 기본 정보 */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="bg-white p-3 rounded border">
-                        <p className="text-xs text-muted-foreground mb-1">묶음 판매 단위</p>
-                        <p className="font-semibold text-lg">{unitsPerPackage}개</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border">
-                        <p className="text-xs text-muted-foreground mb-1">총 묶음 수량</p>
-                        <p className="font-semibold text-lg">{packageCount.toLocaleString()}묶음</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border">
-                        <p className="text-xs text-muted-foreground mb-1">묶음당 원가</p>
-                        <p className="font-semibold text-lg text-blue-600">{costPerPackage.toLocaleString()}원</p>
-                      </div>
-                    </div>
-
-                    {/* 계산 과정 */}
-                    {/* 계산 과정 */}
-                    <div className="bg-white p-4 rounded border-2 border-blue-200">
-                      <h4 className="font-semibold mb-3 text-blue-900">
-                        {manualSellingPrice ? '💡 마진율 역산 공식 (판매가 대비)' : '💡 판매가 계산 공식 (판매가 기준 마진)'}
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        {manualSellingPrice ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">마진율</span>
-                              <span>=</span>
-                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">((판매가 - 각종 비용) / 판매가) * 100</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>=</span>
-                              <span>(({sellingPrice.toLocaleString()} - {(costPerPackage + (formData.actualShippingFeeKrw || 0) + adCost + commission).toLocaleString()}) / {sellingPrice.toLocaleString()}) * 100</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>=</span>
-                              <span>({profit.toLocaleString()} / {sellingPrice.toLocaleString()}) * 100</span>
-                              <span>=</span>
-                              <span className="font-bold text-blue-600">{sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%</span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">판매가</span>
-                              <span>=</span>
-                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">(묶음당 원가 + 배송비)</span>
-                              <span>/</span>
-                              <span className="font-mono bg-blue-100 px-2 py-1 rounded">(1 - 마진율 - 수수료율 - 1/ROAS)</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>=</span>
-                              <span>({costPerPackage.toLocaleString()} + {(formData.actualShippingFeeKrw || 0).toLocaleString()})</span>
-                              <span>/</span>
-                              <span>(1 - {marginDecimal.toFixed(2)} - {commissionDecimal.toFixed(2)} - {roasMultiplier.toFixed(2)})</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>=</span>
-                              <span>{numerator.toLocaleString()}</span>
-                              <span>/</span>
-                              <span>{denominator.toFixed(3)}</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 최종 결과 */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-lg text-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm opacity-90 mb-1">최종 판매가격 (묶음당)</p>
-                          <p className="text-4xl font-bold">{sellingPrice.toLocaleString()}원</p>
-                          <p className="text-xs opacity-75 mt-1">
-                            {unitsPerPackage > 1 ? `${unitsPerPackage}개 묶음 기준` : '개당 가격'}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm opacity-90 mb-1">예상 순이익</p>
-                          <p className="text-2xl font-bold text-green-300">{profit.toLocaleString()}원</p>
-                          <p className="text-xs opacity-75 mt-1">
-                            마진율: {sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 비용 분해 */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <div className="bg-white p-3 rounded border border-gray-200">
-                        <p className="text-xs text-muted-foreground mb-1">묶음당 원가</p>
-                        <p className="font-semibold text-blue-600">{costPerPackage.toLocaleString()}원</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border border-gray-200">
-                        <p className="text-xs text-muted-foreground mb-1">배송비</p>
-                        <p className="font-semibold text-orange-600">{(formData.actualShippingFeeKrw || 0).toLocaleString()}원</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border border-gray-200">
-                        <p className="text-xs text-muted-foreground mb-1">광고비</p>
-                        <p className="font-semibold text-purple-600">{Math.round(adCost).toLocaleString()}원</p>
-                        <p className="text-xs text-muted-foreground">({(roasMultiplier * 100).toFixed(1)}%)</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border border-gray-200">
-                        <p className="text-xs text-muted-foreground mb-1">판매 수수료</p>
-                        <p className="font-semibold text-red-600">{Math.round(commission).toLocaleString()}원</p>
-                        <p className="text-xs text-muted-foreground">({formData.marketplaceCommissionRate}%)</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border-2 border-green-300">
-                        <p className="text-xs text-muted-foreground mb-1">순이익</p>
-                        <p className="font-bold text-green-600">{Math.round(profit).toLocaleString()}원</p>
-                        <p className="text-xs text-muted-foreground">({sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%)</p>
-                      </div>
-                    </div>
+              {/* 최종 결과 */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-lg text-white mt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90 mb-1">최종 판매가격 (묶음당)</p>
+                    <p className="text-4xl font-bold">{sellingPrice.toLocaleString()}원</p>
+                    <p className="text-xs opacity-75 mt-1">
+                      총 {totalPackages.toFixed(1)}묶음
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm opacity-90 mb-1">예상 순이익</p>
+                    <p className="text-2xl font-bold text-green-300">{profit.toLocaleString()}원</p>
+                    <p className="text-xs opacity-75 mt-1">
+                      마진율: {sellingPrice > 0 ? ((profit / sellingPrice) * 100).toFixed(2) : 0}%
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 

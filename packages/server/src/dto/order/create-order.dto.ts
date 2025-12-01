@@ -1,26 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsDateString, IsPositive, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsDateString, IsPositive, Min, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CreateOrderItemDto } from './create-order-item.dto';
 
 export class CreateOrderDto {
-  @ApiProperty({ description: '제품 ID', example: 1 })
+  @ApiProperty({ description: '발주 아이템 목록', type: [CreateOrderItemDto] })
   @IsNotEmpty()
-  @IsNumber()
-  @IsPositive()
-  productId: number;
-
-  @ApiProperty({ description: '수량', example: 100 })
-  @IsNotEmpty()
-  @IsNumber()
-  @IsPositive()
-  quantity: number;
-
-  @ApiProperty({ description: '단위당 원가 (위안)', example: 10.50 })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  originalCostYuan: number;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items: CreateOrderItemDto[];
 
   @ApiProperty({ description: '환율', example: 180.50 })
   @IsNotEmpty()
@@ -29,56 +18,17 @@ export class CreateOrderDto {
   @Type(() => Number)
   exchangeRate: number;
 
-  @ApiProperty({ description: '서비스 수수료 (위안)', example: 5.00 })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  serviceFeeYuan: number;
-
-  @ApiProperty({ description: '검수 수수료 (위안)', example: 2.00 })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  inspectionFeeYuan: number;
-
-  @ApiProperty({ description: '포장 수수료 (위안)', example: 1.50 })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  packagingFeeYuan: number;
-
-  @ApiProperty({ description: '중국내 배송비 (위안)', example: 10.0, required: false, default: 0 })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  domesticShippingFeeYuan?: number;
-
   @ApiProperty({ description: '해외 배송비 (원화)', example: 6000, required: false, default: 0 })
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   internationalShippingFeeKrw?: number;
 
-  @ApiProperty({ description: '배송비 (원화) - 총합', example: 50000, required: false })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  shippingFeeKrw?: number;
-
   @ApiProperty({ description: '기타 비용 (원화)', example: 5000, required: false, default: 0 })
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   miscellaneousFeeKrw?: number;
-
-  @ApiProperty({ description: '보관료 (원화)', example: 10000, required: false, default: 0 })
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  storageFeeKrw?: number;
 
   @ApiProperty({ description: '통관 수수료 (원화)', example: 10000 })
   @IsNotEmpty()
