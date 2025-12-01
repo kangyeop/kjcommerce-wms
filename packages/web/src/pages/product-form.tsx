@@ -24,9 +24,11 @@ const ProductFormPage = () => {
     name: '',
     pricePerUnitYuan: '',
     weightPerUnit: '',
+    cbmPerUnit: '',
     productUrl: '',
     options: '',
     unitsPerPackage: '1',
+    coupangShippingFee: '',
   })
 
   // 기존 데이터 로드
@@ -36,9 +38,11 @@ const ProductFormPage = () => {
         name: existingProduct.name,
         pricePerUnitYuan: existingProduct.pricePerUnitYuan.toString(),
         weightPerUnit: existingProduct.weightPerUnit.toString(),
+        cbmPerUnit: (existingProduct.cbmPerUnit || 0).toString(),
         productUrl: existingProduct.productUrl || '',
         options: existingProduct.options || '',
         unitsPerPackage: (existingProduct.unitsPerPackage || 1).toString(),
+        coupangShippingFee: (existingProduct.coupangShippingFee || 0).toString(),
       })
     }
   }, [existingProduct])
@@ -80,7 +84,9 @@ const ProductFormPage = () => {
       name: formData.name,
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
+      cbmPerUnit: parseFloat(formData.cbmPerUnit) || 0,
       unitsPerPackage: parseInt(formData.unitsPerPackage) || 1,
+      coupangShippingFee: parseInt(formData.coupangShippingFee) || 0,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
     }
@@ -152,6 +158,23 @@ const ProductFormPage = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="cbmPerUnit">개당 부피 (CBM)</Label>
+              <Input 
+                id="cbmPerUnit"
+                name="cbmPerUnit"
+                type="number"
+                min="0"
+                step="0.0001"
+                value={formData.cbmPerUnit}
+                onChange={handleChange}
+                placeholder="개당 부피를 입력하세요 (보관비 계산용)"
+              />
+              <p className="text-xs text-muted-foreground">
+                보관비 계산에 사용됩니다. 가로 × 세로 × 높이 (m 단위)
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="unitsPerPackage">묶음 판매 수량 *</Label>
               <Input 
                 id="unitsPerPackage"
@@ -166,6 +189,23 @@ const ProductFormPage = () => {
               />
               <p className="text-xs text-muted-foreground">
                 예: 2개 묶음으로 판매하면 2 입력
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="coupangShippingFee">쿠팡 배송비 (원)</Label>
+              <Input 
+                id="coupangShippingFee"
+                name="coupangShippingFee"
+                type="number"
+                min="0"
+                step="100"
+                value={formData.coupangShippingFee}
+                onChange={handleChange}
+                placeholder="쿠팡 배송비를 입력하세요"
+              />
+              <p className="text-xs text-muted-foreground">
+                판매가격 계산 시 사용됩니다 (기본값: 0원)
               </p>
             </div>
 

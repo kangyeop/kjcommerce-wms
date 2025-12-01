@@ -8,6 +8,7 @@ export interface Product {
   productUrl?: string;
   options?: string;
   unitsPerPackage: number;
+  coupangShippingFee: number;
   createdAt: string;
   updatedAt: string;
 }

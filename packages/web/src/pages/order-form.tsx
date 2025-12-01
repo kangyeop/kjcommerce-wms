@@ -161,9 +161,9 @@ const OrderFormPage = () => {
     }
   }, [currentItem.productId, currentItem.quantity, products, updateCurrentItem])
 
-  // 각 아이템의 총 원가 및 개당 원가 계산 (useMemo로 최적화)
-  const calculatedItems = useMemo(() => {
-    return orderItems.map(item => {
+  // 각 아이템의 총 원가 및 개당 원가 계산
+  useEffect(() => {
+    const newItems = orderItems.map(item => {
       const itemTotal = calculateItemTotalCostKrw(
         item.originalCostYuan,
         item.serviceFeeYuan,
@@ -177,6 +177,16 @@ const OrderFormPage = () => {
       
       return { ...item, itemTotalCostKrw: itemTotal, unitCostKrw: unitCost }
     })
+    
+    // 실제로 값이 변경되었을 때만 업데이트
+    const hasChanged = newItems.some((newItem, index) => 
+      newItem.itemTotalCostKrw !== orderItems[index].itemTotalCostKrw ||
+      newItem.unitCostKrw !== orderItems[index].unitCostKrw
+    )
+    
+    if (hasChanged) {
+      setOrderItems(newItems)
+    }
   }, [
     orderItems.map(i => i.originalCostYuan).join(','),
     orderItems.map(i => i.serviceFeeYuan).join(','),
@@ -186,18 +196,6 @@ const OrderFormPage = () => {
     orderItems.map(i => i.quantity).join(','),
     formData.exchangeRate
   ])
-
-  // calculatedItems가 변경되면 orderItems 업데이트
-  useEffect(() => {
-    const hasChanged = calculatedItems.some((newItem, index) => 
-      newItem.itemTotalCostKrw !== orderItems[index].itemTotalCostKrw ||
-      newItem.unitCostKrw !== orderItems[index].unitCostKrw
-    )
-    
-    if (hasChanged) {
-      setOrderItems(calculatedItems)
-    }
-  }, [calculatedItems])
 
   // 총 무게 계산 (useMemo로 최적화)
   const totalWeightKg = useMemo(() => {

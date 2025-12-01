@@ -90,7 +90,29 @@ const PricingCalculatorPage = () => {
   const calculatePrice = () => {
     if (!selectedItem) return
 
-    // 1. 보관료 계산
+    // 쿠팡 배송비 (상품에 설정된 값 사용)
+    const coupangShippingFee = selectedItem.product?.coupangShippingFee || 0
+
+    // 1. 판매가 계산 (원가 + 배송비를 기준으로 마진과 수수료를 고려)
+    // 판매가 = (원가 + 배송비) / (1 - 마진율 - 수수료율)
+    const costBase = selectedItem.unitCostKrw + coupangShippingFee
+    const marginRateDecimal = formData.marginRate / 100
+    const commissionRateDecimal = formData.marketplaceCommissionRate / 100
+
+    const denominator = 1 - marginRateDecimal - commissionRateDecimal
+    
+    if (denominator <= 0) {
+      alert('마진율과 수수료율의 합이 100% 이상이어서 계산할 수 없습니다.')
+      return
+    }
+
+    const sellingPrice = Math.ceil(costBase / denominator / 100) * 100 // 100원 단위 반올림
+
+    // 2. 마진 계산
+    const commission = Math.round(sellingPrice * commissionRateDecimal)
+    const totalMargin = sellingPrice - selectedItem.unitCostKrw - coupangShippingFee - commission
+
+    // 3. 보관료 계산
     const cbm = selectedItem.product?.cbmPerUnit || 0
     const storageFee = calculateStorageFee({
       cbmPerUnit: cbm,
@@ -98,28 +120,11 @@ const PricingCalculatorPage = () => {
       dailySales: formData.storageFeeInputs.dailySales
     })
 
-    // 2. 판매가 계산
-    // 판매가 = (원가 + 배송비 + 보관료) / (1 - 마진율 - 수수료율 - (1/ROAS))
-    // 주의: 마진율, 수수료율은 퍼센트 단위
-    
-    const costBase = selectedItem.unitCostKrw + formData.actualShippingFeeKrw + storageFee.totalFeePerUnit
-    const marginRateDecimal = formData.marginRate / 100
-    const commissionRateDecimal = formData.marketplaceCommissionRate / 100
-    const roasDecimal = 1 / formData.roas
-
-    const denominator = 1 - marginRateDecimal - commissionRateDecimal - roasDecimal
-    
-    if (denominator <= 0) {
-      alert('마진율, 수수료, 광고비 비중이 너무 높아 계산할 수 없습니다.')
-      return
-    }
-
-    const sellingPrice = Math.ceil(costBase / denominator / 100) * 100 // 100원 단위 반올림
-
-    // 3. 이익 및 광고비 계산
+    // 4. 광고비 계산 (ROAS 기준)
     const adCost = Math.round(sellingPrice / formData.roas)
-    const commission = Math.round(sellingPrice * commissionRateDecimal)
-    const profit = sellingPrice - selectedItem.unitCostKrw - formData.actualShippingFeeKrw - storageFee.totalFeePerUnit - adCost - commission
+
+    // 5. 순이익 = 마진 - 보관료 - 광고비
+    const profit = totalMargin - storageFee.totalFeePerUnit - adCost
 
     setCalculationResult({
       sellingPrice,
@@ -229,14 +234,9 @@ const PricingCalculatorPage = () => {
                   value={formData.roas}
                   onChange={e => setFormData(prev => ({ ...prev, roas: Number(e.target.value) }))}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>실제 배송비 (원)</Label>
-                <Input 
-                  type="number" 
-                  value={formData.actualShippingFeeKrw}
-                  onChange={e => setFormData(prev => ({ ...prev, actualShippingFeeKrw: Number(e.target.value) }))}
-                />
+                <p className="text-xs text-muted-foreground">
+                  광고비 = 판매가 / ROAS
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>마켓 수수료율 (%)</Label>
@@ -273,6 +273,9 @@ const PricingCalculatorPage = () => {
                     />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  CBM: {selectedItem.product?.cbmPerUnit.toFixed(4) || 0} / 쿠팡 배송비: {selectedItem.product?.coupangShippingFee.toLocaleString() || 0}원
+                </p>
               </div>
 
               <Button className="w-full mt-4" onClick={calculatePrice}>
@@ -294,12 +297,8 @@ const PricingCalculatorPage = () => {
                       <span>{selectedItem.unitCostKrw.toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
-                      <span className="font-semibold">예상 보관료</span>
-                      <span>{calculationResult.storageFee.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
-                      <span className="font-semibold">예상 광고비</span>
-                      <span>{calculationResult.adCost.toLocaleString()}원</span>
+                      <span className="font-semibold">쿠팡 배송비</span>
+                      <span>{(selectedItem.product?.coupangShippingFee || 0).toLocaleString()}원</span>
                     </div>
                     
                     <div className="border-t pt-4">
@@ -309,8 +308,26 @@ const PricingCalculatorPage = () => {
                           {calculationResult.sellingPrice.toLocaleString()}원
                         </span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-green-600">예상 순이익</span>
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded space-y-2">
+                      <h4 className="font-semibold text-blue-900">마진 분석</h4>
+                      <div className="flex justify-between items-center text-sm">
+                        <span>총 마진</span>
+                        <span className="font-semibold">
+                          {(calculationResult.sellingPrice - selectedItem.unitCostKrw - (selectedItem.product?.coupangShippingFee || 0) - Math.round(calculationResult.sellingPrice * formData.marketplaceCommissionRate / 100)).toLocaleString()}원
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm text-red-600">
+                        <span>- 예상 보관료</span>
+                        <span>{calculationResult.storageFee.toLocaleString()}원</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm text-red-600">
+                        <span>- 예상 광고비 (ROAS {formData.roas})</span>
+                        <span>{calculationResult.adCost.toLocaleString()}원</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between items-center">
+                        <span className="font-semibold text-green-600">= 순이익</span>
                         <span className="text-xl font-bold text-green-600">
                           {calculationResult.profit.toLocaleString()}원
                         </span>

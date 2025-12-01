@@ -45,4 +45,11 @@ export class CreateProductDto {
   @Min(1)
   @Type(() => Number)
   unitsPerPackage?: number;
+
+  @ApiProperty({ description: '쿠팡 배송비 (원)', example: 3000, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  coupangShippingFee?: number;
 }

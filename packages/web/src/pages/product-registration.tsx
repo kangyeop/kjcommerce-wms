@@ -28,6 +28,7 @@ const ProductRegistrationPage = () => {
       productUrl?: string;
       options?: string;
       unitsPerPackage: number;
+      coupangShippingFee: number;
     }) => productService.create(newProduct),
     onSuccess: () => {
       // 제품 생성 성공 시 제품 목록 재조회
@@ -41,6 +42,7 @@ const ProductRegistrationPage = () => {
         productUrl: '',
         options: '',
         unitsPerPackage: '1',
+        coupangShippingFee: '',
       });
     },
   });
@@ -60,6 +62,7 @@ const ProductRegistrationPage = () => {
         productUrl?: string;
         options?: string;
         unitsPerPackage: number;
+        coupangShippingFee: number;
       };
     }) => productService.update(id, data),
     onSuccess: () => {
@@ -73,6 +76,7 @@ const ProductRegistrationPage = () => {
         productUrl: '',
         options: '',
         unitsPerPackage: '1',
+        coupangShippingFee: '',
       });
     },
   });
@@ -93,6 +97,7 @@ const ProductRegistrationPage = () => {
     productUrl: '',
     options: '',
     unitsPerPackage: '1',
+    coupangShippingFee: '',
   });
 
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
@@ -115,6 +120,7 @@ const ProductRegistrationPage = () => {
       weightPerUnit: parseFloat(formData.weightPerUnit),
       cbmPerUnit: parseFloat(formData.cbmPerUnit) || 0,
       unitsPerPackage: parseInt(formData.unitsPerPackage || '1'), // Ensure default '1' if empty string
+      coupangShippingFee: parseInt(formData.coupangShippingFee || '0') || 0,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
     };
@@ -138,6 +144,7 @@ const ProductRegistrationPage = () => {
       productUrl: product.productUrl || '',
       options: product.options || '',
       unitsPerPackage: (product.unitsPerPackage || 1).toString(),
+      coupangShippingFee: (product.coupangShippingFee || 0).toString(),
     });
     // 폼으로 스크롤
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -153,6 +160,7 @@ const ProductRegistrationPage = () => {
       productUrl: '',
       options: '',
       unitsPerPackage: '1',
+      coupangShippingFee: '',
     });
   };
 
