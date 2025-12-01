@@ -86,12 +86,16 @@ const PricingCalculatorPage = () => {
   const calculatePrice = () => {
     if (!selectedItem) return
 
+    // 묶음 판매 개수
+    const unitsPerPackage = selectedItem.product?.unitsPerPackage || 1
+    
     // 쿠팡 배송비 (상품에 설정된 값 사용)
     const coupangShippingFee = selectedItem.product?.coupangShippingFee || 0
 
-    // 1. 판매가 계산 (원가 + 배송비를 기준으로 마진과 수수료를 고려)
-    // 판매가 = (원가 + 배송비) / (1 - 마진율 - 수수료율)
-    const costBase = selectedItem.unitCostKrw + coupangShippingFee
+    // 1. 판매가 계산 (묶음당 원가 + 배송비를 기준으로 마진과 수수료를 고려)
+    // 묶음당 원가 = 개당 원가 × 묶음 개수
+    const bundleCost = selectedItem.unitCostKrw * unitsPerPackage
+    const costBase = bundleCost + coupangShippingFee
     const marginRateDecimal = formData.marginRate / 100
     const commissionRateDecimal = formData.marketplaceCommissionRate / 100
 
@@ -106,12 +110,13 @@ const PricingCalculatorPage = () => {
 
     // 2. 마진 계산
     const commission = Math.round(sellingPrice * commissionRateDecimal)
-    const totalMargin = sellingPrice - selectedItem.unitCostKrw - coupangShippingFee - commission
+    const totalMargin = sellingPrice - bundleCost - coupangShippingFee - commission
 
-    // 3. 보관료 계산
-    const cbm = selectedItem.product?.cbmPerUnit || 0
+    // 3. 보관료 계산 (묶음 전체의 CBM 사용)
+    const cbmPerUnit = selectedItem.product?.cbmPerUnit || 0
+    const bundleCbm = cbmPerUnit * unitsPerPackage
     const storageFee = calculateStorageFee({
-      cbmPerUnit: cbm,
+      cbmPerUnit: bundleCbm,
       maxDays: formData.storageFeeInputs.maxDays,
       dailySales: formData.storageFeeInputs.dailySales
     })
@@ -273,7 +278,7 @@ const PricingCalculatorPage = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  CBM: {selectedItem.product?.cbmPerUnit.toFixed(4) || 0} / 쿠팡 배송비: {selectedItem.product?.coupangShippingFee.toLocaleString() || 0}원
+                  개당 CBM: {selectedItem.product?.cbmPerUnit.toFixed(6) || 0} / 묶음 CBM: {((selectedItem.product?.cbmPerUnit || 0) * (selectedItem.product?.unitsPerPackage || 1)).toFixed(6)}
                 </p>
               </div>
 
@@ -296,13 +301,23 @@ const PricingCalculatorPage = () => {
                       <span>{selectedItem.unitCostKrw.toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                      <span className="font-semibold">묶음 판매 수량</span>
+                      <span>{selectedItem.product?.unitsPerPackage || 1}개</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded border border-blue-200">
+                      <span className="font-semibold text-blue-900">묶음당 원가</span>
+                      <span className="font-bold text-blue-900">
+                        {(selectedItem.unitCostKrw * (selectedItem.product?.unitsPerPackage || 1)).toLocaleString()}원
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
                       <span className="font-semibold">쿠팡 배송비</span>
                       <span>{(selectedItem.product?.coupangShippingFee || 0).toLocaleString()}원</span>
                     </div>
                     
                     <div className="border-t pt-4">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-lg font-bold">권장 판매가</span>
+                        <span className="text-lg font-bold">권장 판매가 (묶음당)</span>
                         <span className="text-2xl font-bold text-blue-600">
                           {calculationResult.sellingPrice.toLocaleString()}원
                         </span>
@@ -314,7 +329,7 @@ const PricingCalculatorPage = () => {
                       <div className="flex justify-between items-center text-sm">
                         <span>총 마진</span>
                         <span className="font-semibold">
-                          {(calculationResult.sellingPrice - selectedItem.unitCostKrw - (selectedItem.product?.coupangShippingFee || 0) - Math.round(calculationResult.sellingPrice * formData.marketplaceCommissionRate / 100)).toLocaleString()}원
+                          {(calculationResult.sellingPrice - (selectedItem.unitCostKrw * (selectedItem.product?.unitsPerPackage || 1)) - (selectedItem.product?.coupangShippingFee || 0) - Math.round(calculationResult.sellingPrice * formData.marketplaceCommissionRate / 100)).toLocaleString()}원
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-sm text-red-600">
