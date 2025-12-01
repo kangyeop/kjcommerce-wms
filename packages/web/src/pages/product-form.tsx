@@ -34,11 +34,14 @@ const ProductFormPage = () => {
   // 기존 데이터 로드
   useEffect(() => {
     if (existingProduct) {
+      // CBM(m³)을 cm³로 변환: 1 m³ = 1,000,000 cm³
+      const cbmInCm3 = existingProduct.cbmPerUnit ? Math.round(existingProduct.cbmPerUnit * 1000000) : 0
+      
       setFormData({
         name: existingProduct.name,
         pricePerUnitYuan: existingProduct.pricePerUnitYuan.toString(),
         weightPerUnit: existingProduct.weightPerUnit.toString(),
-        cbmPerUnit: (existingProduct.cbmPerUnit || 0).toString(),
+        cbmPerUnit: cbmInCm3.toString(),
         productUrl: existingProduct.productUrl || '',
         options: existingProduct.options || '',
         unitsPerPackage: (existingProduct.unitsPerPackage || 1).toString(),
@@ -67,6 +70,15 @@ const ProductFormPage = () => {
     },
   })
 
+  // 제품 삭제 뮤테이션
+  const deleteProductMutation = useMutation({
+    mutationFn: (id: number) => productService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      navigate('/products')
+    },
+  })
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -80,11 +92,14 @@ const ProductFormPage = () => {
       return
     }
 
+    // cm³를 CBM(m³)으로 변환: 1 m³ = 1,000,000 cm³
+    const cbmValue = formData.cbmPerUnit ? parseFloat(formData.cbmPerUnit) / 1000000 : 0
+
     const productData = {
       name: formData.name,
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
-      cbmPerUnit: parseFloat(formData.cbmPerUnit) || 0,
+      cbmPerUnit: cbmValue,
       unitsPerPackage: parseInt(formData.unitsPerPackage) || 1,
       coupangShippingFee: parseInt(formData.coupangShippingFee) || 0,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
@@ -98,15 +113,32 @@ const ProductFormPage = () => {
     }
   }
 
+  const handleDelete = () => {
+    if (window.confirm('정말로 이 제품을 삭제하시겠습니까?')) {
+      deleteProductMutation.mutate(Number(id))
+    }
+  }
+
   const isPending = createProductMutation.isPending || updateProductMutation.isPending
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{isEditMode ? '제품 수정' : '제품 추가'}</h1>
-        <Button variant="outline" onClick={() => navigate(isEditMode ? `/products/${id}` : '/products')}>
-          취소
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(isEditMode ? `/products/${id}` : '/products')}>
+            취소
+          </Button>
+          {isEditMode && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete}
+              disabled={deleteProductMutation.isPending}
+            >
+              {deleteProductMutation.isPending ? '삭제 중...' : '삭제'}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -158,19 +190,19 @@ const ProductFormPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cbmPerUnit">개당 부피 (CBM)</Label>
+              <Label htmlFor="cbmPerUnit">개당 부피 (cm³)</Label>
               <Input 
                 id="cbmPerUnit"
                 name="cbmPerUnit"
                 type="number"
                 min="0"
-                step="0.0001"
+                step="1"
                 value={formData.cbmPerUnit}
                 onChange={handleChange}
-                placeholder="개당 부피를 입력하세요 (보관비 계산용)"
+                placeholder="가로 × 세로 × 높이 (cm 단위)"
               />
               <p className="text-xs text-muted-foreground">
-                보관비 계산에 사용됩니다. 가로 × 세로 × 높이 (m 단위)
+                예: 10cm × 10cm × 10cm = 1000 입력 (자동으로 CBM으로 변환됩니다)
               </p>
             </div>
 

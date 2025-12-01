@@ -42,9 +42,7 @@ const PricingCalculatorPage = () => {
   const [formData, setFormData] = useState({
     marginRate: 30,
     roas: 2,
-    actualShippingFeeKrw: 3000,
     marketplaceCommissionRate: 10,
-    adCostKrw: 0,
     storageFeeInputs: {
       maxDays: 365,
       dailySales: 10
@@ -71,9 +69,7 @@ const PricingCalculatorPage = () => {
           ...prev,
           marginRate: pricing.marginRate,
           roas: pricing.roas,
-          actualShippingFeeKrw: pricing.actualShippingFeeKrw,
           marketplaceCommissionRate: pricing.marketplaceCommissionRate,
-          adCostKrw: pricing.adCostKrw,
         }))
         // 결과 미리 계산
         setCalculationResult({
@@ -147,7 +143,10 @@ const PricingCalculatorPage = () => {
   })
 
   const handleSave = () => {
-    if (!selectedOrderId || !selectedOrderItemId || !calculationResult) return
+    if (!selectedOrderId || !selectedOrderItemId || !calculationResult || !selectedItem) return
+
+    // 쿠팡 배송비를 actualShippingFeeKrw로 저장 (하위 호환성)
+    const coupangShippingFee = selectedItem.product?.coupangShippingFee || 0
 
     savePricingMutation.mutate({
       orderId: Number(selectedOrderId),
@@ -155,7 +154,7 @@ const PricingCalculatorPage = () => {
       storageFeeKrw: calculationResult.storageFee,
       marginRate: formData.marginRate,
       roas: formData.roas,
-      actualShippingFeeKrw: formData.actualShippingFeeKrw,
+      actualShippingFeeKrw: coupangShippingFee,
       marketplaceCommissionRate: formData.marketplaceCommissionRate,
       sellingPriceKrw: calculationResult.sellingPrice,
       adCostKrw: calculationResult.adCost,

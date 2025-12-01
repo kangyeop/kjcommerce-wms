@@ -7,3 +7,5 @@ pnpm build
 pnpm build:server
 
 pm2 restart ecosystem.config.js --env production
+
+cp -R ./packages/web/dist /var/www
