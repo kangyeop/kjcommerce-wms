@@ -68,6 +68,7 @@ const PricingCalculatorPage = () => {
     profit: number;
     storageFee: number;
     adCost: number;
+    grossMargin: number; // 광고/보관료 차감 전 마진
   } | null>(null)
 
   // 선택된 아이템
@@ -90,8 +91,11 @@ const PricingCalculatorPage = () => {
           sellingPrice: pricing.sellingPriceKrw,
           profit: pricing.profitKrw,
           storageFee: pricing.storageFeeKrw,
-          adCost: pricing.adCostKrw
+          adCost: pricing.adCostKrw,
+          grossMargin: pricing.sellingPriceKrw - (pricing.sellingPriceKrw * pricing.marketplaceCommissionRate / 100) - pricing.profitKrw // 역산이 필요하지만 단순화를 위해 재계산 권장
         })
+        // 저장된 값으로 정확한 grossMargin을 알기 어려우므로 재계산 트리거
+        setTimeout(() => calculatePriceFromMargin(pricing.marginRate), 0)
       }
     }
   }, [selectedOrderItemId, existingPricings])
@@ -182,7 +186,8 @@ const PricingCalculatorPage = () => {
       sellingPrice,
       profit,
       storageFee: storageFee.totalFeePerUnit,
-      adCost
+      adCost,
+      grossMargin: totalMargin
     })
   }
 
@@ -324,9 +329,16 @@ const PricingCalculatorPage = () => {
                 <p className="text-emerald-100 font-medium mb-1 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" /> 예상 순이익
                 </p>
-                <div className="text-4xl font-bold tracking-tight">
-                  {calculationResult?.profit.toLocaleString() ?? 0}
-                  <span className="text-2xl font-normal ml-1 opacity-80">원</span>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-4xl font-bold tracking-tight">
+                    {calculationResult?.profit.toLocaleString() ?? 0}
+                    <span className="text-2xl font-normal ml-1 opacity-80">원</span>
+                  </div>
+                  {calculationResult && (
+                    <div className="text-lg font-semibold bg-white/20 px-2 py-0.5 rounded text-emerald-50">
+                      {((calculationResult.profit / calculationResult.sellingPrice) * 100).toFixed(1)}%
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-emerald-100 mt-4 opacity-80">
                   모든 비용 제외 후 실제 수익
@@ -553,9 +565,19 @@ const PricingCalculatorPage = () => {
                             <ArrowRight className="w-4 h-4" /> 마켓 수수료 ({formData.marketplaceCommissionRate}%)
                           </span>
                           <span className="font-medium text-orange-600">
-                            -{Math.round(calculationResult.sellingPrice * formData.marketplaceCommissionRate / 100).toLocaleString()}원
+                            <span>{Math.round(calculationResult.sellingPrice * formData.marketplaceCommissionRate / 100).toLocaleString()}원</span>
                           </span>
                         </div>
+                        
+                        <div className="flex justify-between items-center py-3 bg-slate-50 px-2 rounded">
+                          <span className="text-slate-700 font-semibold flex items-center gap-2">
+                            <ArrowRight className="w-4 h-4 text-slate-500" /> 1차 마진 (광고/보관료 전)
+                          </span>
+                          <span className="font-bold text-slate-700">
+                            {calculationResult.grossMargin.toLocaleString()}원
+                          </span>
+                        </div>
+
                         <div className="flex justify-between items-center py-3">
                           <span className="text-red-500 flex items-center gap-2">
                             <ArrowRight className="w-4 h-4" /> 예상 광고비 (ROAS {formData.roas})
