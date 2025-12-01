@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsNumber, IsString, Min, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateProductDto {
   @ApiProperty({ description: '제품 이름' })
@@ -11,19 +12,22 @@ export class CreateProductDto {
   @IsNotEmpty()
   @IsNumber()
   @Min(0)
+  @Type(() => Number)
   pricePerUnitYuan: number;
 
   @ApiProperty({ description: '단위당 무게 (kg)' })
   @IsNotEmpty()
   @IsNumber()
   @Min(0)
+  @Type(() => Number)
   weightPerUnit: number;
 
-  @ApiProperty({ description: '단위당 부피 (CBM)' })
-  @IsNotEmpty()
+  @ApiProperty({ description: '단위당 부피 (CBM)', required: false, default: 0 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  cbmPerUnit: number;
+  @Type(() => Number)
+  cbmPerUnit?: number;
 
   @ApiProperty({ description: '상품 URL', required: false })
   @IsOptional()
@@ -39,5 +43,6 @@ export class CreateProductDto {
   @IsOptional()
   @IsNumber()
   @Min(1)
+  @Type(() => Number)
   unitsPerPackage?: number;
 }
