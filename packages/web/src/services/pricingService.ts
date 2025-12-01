@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Pricing, CreatePricingDto } from '../types';
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '/api';
 
 export const pricingService = {
   // 판매가격 정보 생성/수정
