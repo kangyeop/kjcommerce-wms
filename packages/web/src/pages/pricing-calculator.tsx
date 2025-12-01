@@ -8,6 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { orderService, pricingService } from '@/services'
 import { Order, Pricing, CreatePricingDto } from '@/types'
 import { calculateStorageFee } from '@/lib/storage-fee-calculator'
+import { 
+  Calculator, 
+  TrendingUp, 
+  Package, 
+  DollarSign, 
+  Save, 
+  RefreshCw,
+  ArrowRight,
+  Box,
+  Truck,
+  Percent
+} from 'lucide-react'
 
 const PricingCalculatorPage = () => {
   const queryClient = useQueryClient()
@@ -41,6 +53,7 @@ const PricingCalculatorPage = () => {
   // 입력 폼 상태
   const [formData, setFormData] = useState({
     marginRate: 30,
+    sellingPrice: 0, // 판매가 수동 입력을 위한 상태 추가
     roas: 2,
     marketplaceCommissionRate: 10,
     storageFeeInputs: {
@@ -68,6 +81,7 @@ const PricingCalculatorPage = () => {
         setFormData(prev => ({
           ...prev,
           marginRate: pricing.marginRate,
+          sellingPrice: pricing.sellingPriceKrw,
           roas: pricing.roas,
           marketplaceCommissionRate: pricing.marketplaceCommissionRate,
         }))
@@ -82,10 +96,12 @@ const PricingCalculatorPage = () => {
     }
   }, [selectedOrderItemId, existingPricings])
 
-  // 가격 계산 로직
-  const calculatePrice = () => {
+  // 마진율 변경 시 판매가 계산
+  const calculatePriceFromMargin = (newMarginRate?: number) => {
     if (!selectedItem) return
 
+    const marginRate = newMarginRate ?? formData.marginRate
+    
     // 묶음 판매 개수
     const unitsPerPackage = selectedItem.product?.unitsPerPackage || 1
     
@@ -96,17 +112,52 @@ const PricingCalculatorPage = () => {
     // 묶음당 원가 = 개당 원가 × 묶음 개수
     const bundleCost = selectedItem.unitCostKrw * unitsPerPackage
     const costBase = bundleCost + coupangShippingFee
-    const marginRateDecimal = formData.marginRate / 100
+    const marginRateDecimal = marginRate / 100
     const commissionRateDecimal = formData.marketplaceCommissionRate / 100
 
     const denominator = 1 - marginRateDecimal - commissionRateDecimal
     
     if (denominator <= 0) {
-      alert('마진율과 수수료율의 합이 100% 이상이어서 계산할 수 없습니다.')
+      // 마진율이 너무 높으면 계산 불가하지만, 입력 중일 수 있으므로 알림은 생략하거나 부드럽게 처리
       return
     }
 
     const sellingPrice = Math.ceil(costBase / denominator / 100) * 100 // 100원 단위 반올림
+    
+    setFormData(prev => ({ ...prev, sellingPrice }))
+    calculateResult(sellingPrice)
+  }
+
+  // 판매가 변경 시 마진율 계산
+  const calculateMarginFromPrice = (newSellingPrice: number) => {
+    if (!selectedItem || newSellingPrice <= 0) return
+
+    // 묶음 판매 개수
+    const unitsPerPackage = selectedItem.product?.unitsPerPackage || 1
+    
+    // 쿠팡 배송비 (상품에 설정된 값 사용)
+    const coupangShippingFee = selectedItem.product?.coupangShippingFee || 0
+
+    const bundleCost = selectedItem.unitCostKrw * unitsPerPackage
+    const costBase = bundleCost + coupangShippingFee
+    const commissionRateDecimal = formData.marketplaceCommissionRate / 100
+
+    // Margin Rate = 1 - Commission Rate - (Cost Base / Selling Price)
+    const marginRateDecimal = 1 - commissionRateDecimal - (costBase / newSellingPrice)
+    const marginRate = parseFloat((marginRateDecimal * 100).toFixed(2)) // 소수점 2자리
+
+    setFormData(prev => ({ ...prev, marginRate }))
+    calculateResult(newSellingPrice)
+  }
+
+  // 공통 결과 계산 로직
+  const calculateResult = (sellingPrice: number) => {
+    if (!selectedItem) return
+
+    const unitsPerPackage = selectedItem.product?.unitsPerPackage || 1
+    const coupangShippingFee = selectedItem.product?.coupangShippingFee || 0
+    const bundleCost = selectedItem.unitCostKrw * unitsPerPackage
+    const commissionRateDecimal = formData.marketplaceCommissionRate / 100
 
     // 2. 마진 계산
     const commission = Math.round(sellingPrice * commissionRateDecimal)
@@ -133,6 +184,11 @@ const PricingCalculatorPage = () => {
       storageFee: storageFee.totalFeePerUnit,
       adCost
     })
+  }
+
+  // 수동 계산 버튼용 (현재 상태 기준 재계산)
+  const handleCalculate = () => {
+    calculatePriceFromMargin()
   }
 
   // 가격 정보 저장 mutation
@@ -168,25 +224,44 @@ const PricingCalculatorPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold">판매가격 계산기</h1>
+    <div className="space-y-8 max-w-7xl mx-auto p-6 bg-slate-50/50 min-h-screen">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+            <Calculator className="w-10 h-10 text-indigo-600" />
+            판매가격 계산기
+          </h1>
+          <p className="text-slate-500 mt-2 text-lg">
+            최적의 마진율과 판매가를 시뮬레이션하고 수익을 극대화하세요.
+          </p>
+        </div>
+        {selectedItem && calculationResult && (
+           <Button 
+           size="lg"
+           className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 transition-all hover:scale-105"
+           onClick={handleSave}
+           disabled={savePricingMutation.isPending}
+         >
+           <Save className="w-5 h-5 mr-2" />
+           {savePricingMutation.isPending ? '저장 중...' : '가격 정보 저장'}
+         </Button>
+        )}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>발주 및 상품 선택</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 1. Selection Section */}
+      <Card className="border-none shadow-md bg-white/80 backdrop-blur-sm">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label>발주 선택</Label>
+              <Label className="text-base font-medium text-slate-700">발주 선택</Label>
               <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-12 text-lg bg-white border-slate-200 focus:ring-indigo-500">
                   <SelectValue placeholder="발주를 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
                   {orders.map(order => (
                     <SelectItem key={order.id} value={order.id.toString()}>
-                      #{order.id} - {order.orderDate} (총 {order.totalCostKrw.toLocaleString()}원)
+                      <span className="font-medium">#{order.id}</span> - {order.orderDate} (총 {order.totalCostKrw.toLocaleString()}원)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -194,13 +269,13 @@ const PricingCalculatorPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>상품 선택</Label>
+              <Label className="text-base font-medium text-slate-700">상품 선택</Label>
               <Select 
                 value={selectedOrderItemId} 
                 onValueChange={setSelectedOrderItemId}
                 disabled={!selectedOrderId}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-12 text-lg bg-white border-slate-200 focus:ring-indigo-500">
                   <SelectValue placeholder="상품을 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
@@ -217,154 +292,305 @@ const PricingCalculatorPage = () => {
       </Card>
 
       {selectedItem && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>가격 설정</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>목표 마진율 (%)</Label>
-                <Input 
-                  type="number" 
-                  value={formData.marginRate}
-                  onChange={e => setFormData(prev => ({ ...prev, marginRate: Number(e.target.value) }))}
-                />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+          
+          {/* 2. Hero Stats Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Selling Price Card */}
+            <Card className="border-none shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white overflow-hidden relative group">
+              <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <DollarSign className="w-32 h-32" />
               </div>
-              <div className="space-y-2">
-                <Label>목표 ROAS (배수)</Label>
-                <Input 
-                  type="number" 
-                  value={formData.roas}
-                  onChange={e => setFormData(prev => ({ ...prev, roas: Number(e.target.value) }))}
-                />
-                <p className="text-xs text-muted-foreground">
-                  광고비 = 판매가 / ROAS
+              <CardContent className="p-6 relative z-10">
+                <p className="text-blue-100 font-medium mb-1 flex items-center gap-2">
+                  <Package className="w-4 h-4" /> 권장 판매가
                 </p>
-              </div>
-              <div className="space-y-2">
-                <Label>마켓 수수료율 (%)</Label>
-                <Input 
-                  type="number" 
-                  value={formData.marketplaceCommissionRate}
-                  onChange={e => setFormData(prev => ({ ...prev, marketplaceCommissionRate: Number(e.target.value) }))}
-                />
-              </div>
-              
-              <div className="pt-4 border-t">
-                <h4 className="font-semibold mb-2">보관료 설정</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-2">
-                    <Label>최대 보관일</Label>
-                    <Input 
-                      type="number" 
-                      value={formData.storageFeeInputs.maxDays}
-                      onChange={e => setFormData(prev => ({ 
-                        ...prev, 
-                        storageFeeInputs: { ...prev.storageFeeInputs, maxDays: Number(e.target.value) } 
-                      }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>일일 판매량</Label>
-                    <Input 
-                      type="number" 
-                      value={formData.storageFeeInputs.dailySales}
-                      onChange={e => setFormData(prev => ({ 
-                        ...prev, 
-                        storageFeeInputs: { ...prev.storageFeeInputs, dailySales: Number(e.target.value) } 
-                      }))}
-                    />
-                  </div>
+                <div className="text-4xl font-bold tracking-tight">
+                  {calculationResult?.sellingPrice.toLocaleString() ?? 0}
+                  <span className="text-2xl font-normal ml-1 opacity-80">원</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  개당 CBM: {selectedItem.product?.cbmPerUnit.toFixed(6) || 0} / 묶음 CBM: {((selectedItem.product?.cbmPerUnit || 0) * (selectedItem.product?.unitsPerPackage || 1)).toFixed(6)}
+                <p className="text-sm text-blue-100 mt-4 opacity-80">
+                  묶음당 ({selectedItem.product?.unitsPerPackage || 1}개) 가격
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Net Profit Card */}
+            <Card className="border-none shadow-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white overflow-hidden relative group">
+              <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <TrendingUp className="w-32 h-32" />
               </div>
+              <CardContent className="p-6 relative z-10">
+                <p className="text-emerald-100 font-medium mb-1 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" /> 예상 순이익
+                </p>
+                <div className="text-4xl font-bold tracking-tight">
+                  {calculationResult?.profit.toLocaleString() ?? 0}
+                  <span className="text-2xl font-normal ml-1 opacity-80">원</span>
+                </div>
+                <p className="text-sm text-emerald-100 mt-4 opacity-80">
+                  모든 비용 제외 후 실제 수익
+                </p>
+              </CardContent>
+            </Card>
 
-              <Button className="w-full mt-4" onClick={calculatePrice}>
-                계산하기
-              </Button>
-            </CardContent>
-          </Card>
+            {/* Margin Rate Card */}
+            <Card className="border-none shadow-lg bg-white text-slate-800 overflow-hidden relative group">
+              <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Percent className="w-32 h-32 text-indigo-600" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <p className="text-slate-500 font-medium mb-1 flex items-center gap-2">
+                  <Percent className="w-4 h-4" /> 목표 마진율
+                </p>
+                <div className="text-4xl font-bold tracking-tight text-indigo-600">
+                  {formData.marginRate}
+                  <span className="text-2xl font-normal ml-1 text-slate-400">%</span>
+                </div>
+                <div className="mt-4">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    step="1"
+                    value={formData.marginRate}
+                    onChange={(e) => {
+                      const val = Number(e.target.value)
+                      setFormData(prev => ({ ...prev, marginRate: val }))
+                      calculatePriceFromMargin(val)
+                    }}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>계산 결과</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {calculationResult ? (
-                <>
+          {/* 3. Main Control & Analysis Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* Left: Controls */}
+            <div className="lg:col-span-5 space-y-6">
+              <Card className="border-none shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Calculator className="w-5 h-5 text-indigo-500" />
+                    가격 설정
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
-                      <span className="font-semibold">개당 원가</span>
-                      <span>{selectedItem.unitCostKrw.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
-                      <span className="font-semibold">묶음 판매 수량</span>
-                      <span>{selectedItem.product?.unitsPerPackage || 1}개</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded border border-blue-200">
-                      <span className="font-semibold text-blue-900">묶음당 원가</span>
-                      <span className="font-bold text-blue-900">
-                        {(selectedItem.unitCostKrw * (selectedItem.product?.unitsPerPackage || 1)).toLocaleString()}원
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
-                      <span className="font-semibold">쿠팡 배송비</span>
-                      <span>{(selectedItem.product?.coupangShippingFee || 0).toLocaleString()}원</span>
-                    </div>
-                    
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-lg font-bold">권장 판매가 (묶음당)</span>
-                        <span className="text-2xl font-bold text-blue-600">
-                          {calculationResult.sellingPrice.toLocaleString()}원
-                        </span>
+                    <div className="space-y-2">
+                      <Label className="text-slate-600">목표 마진율 (%)</Label>
+                      <div className="relative">
+                        <Input 
+                          type="number" 
+                          className="pl-10 h-12 text-lg font-medium"
+                          value={formData.marginRate}
+                          onChange={e => {
+                            const val = Number(e.target.value)
+                            setFormData(prev => ({ ...prev, marginRate: val }))
+                            calculatePriceFromMargin(val)
+                          }}
+                        />
+                        <Percent className="w-4 h-4 absolute left-3 top-4 text-slate-400" />
                       </div>
                     </div>
 
-                    <div className="bg-blue-50 p-4 rounded space-y-2">
-                      <h4 className="font-semibold text-blue-900">마진 분석</h4>
-                      <div className="flex justify-between items-center text-sm">
-                        <span>총 마진</span>
-                        <span className="font-semibold">
-                          {(calculationResult.sellingPrice - (selectedItem.unitCostKrw * (selectedItem.product?.unitsPerPackage || 1)) - (selectedItem.product?.coupangShippingFee || 0) - Math.round(calculationResult.sellingPrice * formData.marketplaceCommissionRate / 100)).toLocaleString()}원
-                        </span>
+                    <div className="space-y-2">
+                      <Label className="text-slate-600">판매가 (원)</Label>
+                      <div className="relative">
+                        <Input 
+                          type="number" 
+                          className="pl-10 h-12 text-lg font-medium text-indigo-600"
+                          value={formData.sellingPrice}
+                          onChange={e => {
+                            const val = Number(e.target.value)
+                            setFormData(prev => ({ ...prev, sellingPrice: val }))
+                            calculateMarginFromPrice(val)
+                          }}
+                        />
+                        <DollarSign className="w-4 h-4 absolute left-3 top-4 text-slate-400" />
                       </div>
-                      <div className="flex justify-between items-center text-sm text-red-600">
-                        <span>- 예상 보관료</span>
-                        <span>{calculationResult.storageFee.toLocaleString()}원</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 space-y-4">
+                    <h4 className="font-medium text-slate-900 flex items-center gap-2">
+                      <Box className="w-4 h-4 text-slate-500" /> 추가 설정
+                    </h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-slate-500">목표 ROAS (배수)</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.roas}
+                          onChange={e => setFormData(prev => ({ ...prev, roas: Number(e.target.value) }))}
+                          className="h-9"
+                        />
                       </div>
-                      <div className="flex justify-between items-center text-sm text-red-600">
-                        <span>- 예상 광고비 (ROAS {formData.roas})</span>
-                        <span>{calculationResult.adCost.toLocaleString()}원</span>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-slate-500">마켓 수수료율 (%)</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.marketplaceCommissionRate}
+                          onChange={e => setFormData(prev => ({ ...prev, marketplaceCommissionRate: Number(e.target.value) }))}
+                          className="h-9"
+                        />
                       </div>
-                      <div className="border-t pt-2 flex justify-between items-center">
-                        <span className="font-semibold text-green-600">= 순이익</span>
-                        <span className="text-xl font-bold text-green-600">
-                          {calculationResult.profit.toLocaleString()}원
-                        </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                      <div className="flex justify-between items-center">
+                        <Label className="text-xs font-medium text-slate-600">최대 보관일</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.storageFeeInputs.maxDays}
+                          onChange={e => setFormData(prev => ({ 
+                            ...prev, 
+                            storageFeeInputs: { ...prev.storageFeeInputs, maxDays: Number(e.target.value) } 
+                          }))}
+                          className="w-20 h-8 text-right"
+                        />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <Label className="text-xs font-medium text-slate-600">일일 판매량</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.storageFeeInputs.dailySales}
+                          onChange={e => setFormData(prev => ({ 
+                            ...prev, 
+                            storageFeeInputs: { ...prev.storageFeeInputs, dailySales: Number(e.target.value) } 
+                          }))}
+                          className="w-20 h-8 text-right"
+                        />
                       </div>
                     </div>
                   </div>
 
                   <Button 
-                    className="w-full" 
-                    variant="default"
-                    onClick={handleSave}
-                    disabled={savePricingMutation.isPending}
+                    variant="outline" 
+                    className="w-full h-12 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    onClick={handleCalculate}
                   >
-                    {savePricingMutation.isPending ? '저장 중...' : '가격 정보 저장'}
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    현재 설정으로 재계산
                   </Button>
-                </>
-              ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                  설정을 입력하고 계산하기 버튼을 눌러주세요.
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right: Analysis */}
+            <div className="lg:col-span-7 space-y-6">
+              <Card className="border-none shadow-md h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    수익 구조 분석
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {calculationResult ? (
+                    <>
+                      {/* Cost Breakdown Bar */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm text-slate-500 mb-1">
+                          <span>비용 구조 시각화</span>
+                          <span>판매가 100% 기준</span>
+                        </div>
+                        <div className="h-6 w-full bg-slate-100 rounded-full overflow-hidden flex text-xs font-bold text-white leading-6 text-center">
+                          <div 
+                            className="bg-slate-400" 
+                            style={{ width: `${((selectedItem.unitCostKrw * (selectedItem.product?.unitsPerPackage || 1)) / calculationResult.sellingPrice * 100)}%` }}
+                            title="원가"
+                          >
+                            원가
+                          </div>
+                          <div 
+                            className="bg-orange-400" 
+                            style={{ width: `${(formData.marketplaceCommissionRate)}%` }}
+                            title="수수료"
+                          >
+                            수수료
+                          </div>
+                          <div 
+                            className="bg-red-400" 
+                            style={{ width: `${(calculationResult.adCost / calculationResult.sellingPrice * 100)}%` }}
+                            title="광고"
+                          >
+                            광고
+                          </div>
+                          <div 
+                            className="bg-emerald-500 flex-1" 
+                            title="순이익"
+                          >
+                            이익
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Detailed List */}
+                      <div className="space-y-0 divide-y divide-slate-100">
+                        <div className="flex justify-between items-center py-3">
+                          <span className="text-slate-600 flex items-center gap-2">
+                            <Box className="w-4 h-4 text-slate-400" /> 묶음당 원가
+                          </span>
+                          <span className="font-medium">
+                            {(selectedItem.unitCostKrw * (selectedItem.product?.unitsPerPackage || 1)).toLocaleString()}원
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-3">
+                          <span className="text-slate-600 flex items-center gap-2">
+                            <Truck className="w-4 h-4 text-slate-400" /> 쿠팡 배송비
+                          </span>
+                          <span className="font-medium">
+                            {(selectedItem.product?.coupangShippingFee || 0).toLocaleString()}원
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-3">
+                          <span className="text-orange-600 flex items-center gap-2">
+                            <ArrowRight className="w-4 h-4" /> 마켓 수수료 ({formData.marketplaceCommissionRate}%)
+                          </span>
+                          <span className="font-medium text-orange-600">
+                            -{Math.round(calculationResult.sellingPrice * formData.marketplaceCommissionRate / 100).toLocaleString()}원
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-3">
+                          <span className="text-red-500 flex items-center gap-2">
+                            <ArrowRight className="w-4 h-4" /> 예상 광고비 (ROAS {formData.roas})
+                          </span>
+                          <span className="font-medium text-red-500">
+                            -{calculationResult.adCost.toLocaleString()}원
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-3">
+                          <span className="text-red-500 flex items-center gap-2">
+                            <ArrowRight className="w-4 h-4" /> 예상 보관료
+                          </span>
+                          <span className="font-medium text-red-500">
+                            -{calculationResult.storageFee.toLocaleString()}원
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center py-4 mt-2 bg-emerald-50/50 px-4 rounded-lg">
+                          <span className="text-emerald-700 font-bold text-lg">최종 순이익</span>
+                          <span className="text-2xl font-extrabold text-emerald-600">
+                            {calculationResult.profit.toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-64 flex flex-col items-center justify-center text-slate-400">
+                      <Calculator className="w-12 h-12 mb-4 opacity-20" />
+                      <p>설정을 입력하면 분석 결과가 표시됩니다.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>
