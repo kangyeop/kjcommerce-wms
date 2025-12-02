@@ -13,6 +13,7 @@ const MainLayout = () => {
                 <li><Link to="/products" className="hover:text-white/80 transition-colors">제품 관리</Link></li>
                 <li><Link to="/orders" className="hover:text-white/80 transition-colors">발주 관리</Link></li>
                 <li><Link to="/pricing" className="hover:text-white/80 transition-colors">판매가격 계산</Link></li>
+                <li><Link to="/coupang-wing" className="hover:text-white/80 transition-colors">쿠팡 윙</Link></li>
               </ul>
             </nav>
           </div>
