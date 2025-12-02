@@ -1,7 +1,8 @@
 import { Controller, Get, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { MarketplaceApiService } from '../services/marketplace-api.service';
+import { InventoryData, InventoryResponse, OrdersData } from '../types/marketplace.types';
 
-@Controller('api/marketplace')
+@Controller('marketplace')
 export class MarketplaceController {
   constructor(private readonly marketplaceApiService: MarketplaceApiService) {}
 
@@ -16,20 +17,17 @@ export class MarketplaceController {
   }
 
   @Get('inventory')
-  async getInventory() {
+  async getInventory(): Promise<InventoryData> {
     try {
       const data = await this.marketplaceApiService.getInventory();
-      return {
-        success: true,
-        data,
-      };
+      return data;
     } catch (error: any) {
       throw new HttpException(
         {
           success: false,
           message: error.message || 'Failed to fetch inventory',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -37,29 +35,22 @@ export class MarketplaceController {
   @Get('sales-orders')
   async getSalesOrders(
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
+    @Query('endDate') endDate?: string
+  ): Promise<OrdersData> {
     // Default to last 7 days if not provided
-    const end = endDate || new Date().toISOString().split('T')[0];
-    const start =
-      startDate ||
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split('T')[0];
+    const end = startDate || '20251120';
+    const start = endDate || '20251113';
 
     try {
       const data = await this.marketplaceApiService.getOrders(start, end);
-      return {
-        success: true,
-        data,
-      };
+      return data;
     } catch (error: any) {
       throw new HttpException(
         {
           success: false,
           message: error.message || 'Failed to fetch sales orders',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }

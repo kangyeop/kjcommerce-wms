@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BarChart3, RefreshCw, Upload, TrendingUp } from 'lucide-react'
-import { adAnalysisService } from '@/services/ad-analysis.service'
+import { adAnalysisService } from '@/services/adAnalysisService'
 
 const AdAnalysisPage = () => {
   const [file, setFile] = useState<File | null>(null)

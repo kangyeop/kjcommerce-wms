@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import axios, { AxiosInstance } from 'axios';
+import { InventoryResponse, OrdersResponse, OrdersData, InventoryData } from '../types/marketplace.types';
 
 @Injectable()
 export class MarketplaceApiService {
@@ -27,11 +28,7 @@ export class MarketplaceApiService {
    * Generate HMAC signature for Marketplace API authentication
    * Format: yyMMddTHHmmssZ (e.g., 231202T123045Z)
    */
-  private generateHmacSignature(
-    method: string,
-    path: string,
-    query: string = '',
-  ): string {
+  private generateHmacSignature(method: string, path: string, query: string = ''): string {
     // Generate timestamp in Coupang's required format: yyMMddTHHmmssZ
     const now = new Date();
     const year = now.getUTCFullYear().toString().slice(-2);
@@ -45,10 +42,7 @@ export class MarketplaceApiService {
     // Message format: datetime + method + path + query
     const message = `${timestamp}${method}${path}${query}`;
 
-    const signature = crypto
-      .createHmac('sha256', this.secretKey)
-      .update(message)
-      .digest('hex');
+    const signature = crypto.createHmac('sha256', this.secretKey).update(message).digest('hex');
 
     return `CEA algorithm=HmacSHA256, access-key=${this.accessKey}, signed-date=${timestamp}, signature=${signature}`;
   }
@@ -60,14 +54,16 @@ export class MarketplaceApiService {
     method: 'GET' | 'POST' | 'PUT',
     path: string,
     query: string = '',
-    data?: any,
+    data?: any
   ): Promise<T> {
     const authorization = this.generateHmacSignature(method, path, query);
+
+    const url = query ? `${path}?${query}` : path;
 
     try {
       const response = await this.axiosInstance.request<T>({
         method,
-        url: path + query,
+        url,
         headers: {
           Authorization: authorization,
           'Content-Type': 'application/json;charset=UTF-8',
@@ -77,10 +73,7 @@ export class MarketplaceApiService {
 
       return response.data;
     } catch (error: any) {
-      this.logger.error(
-        `Marketplace API request failed: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Marketplace API request failed: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -88,7 +81,7 @@ export class MarketplaceApiService {
   /**
    * Get Rocket Growth inventory status
    */
-  async getInventory(): Promise<any> {
+  async getInventory(): Promise<InventoryData> {
     if (!this.accessKey || !this.secretKey) {
       throw new Error('Marketplace API credentials not configured');
     }
@@ -96,9 +89,10 @@ export class MarketplaceApiService {
     const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${this.vendorId}/rg/inventory/summaries`;
 
     try {
-      const result = await this.makeRequest('GET', path);
+      const result = await this.makeRequest<InventoryResponse>('GET', path);
+
       this.logger.log('Successfully fetched inventory data');
-      return result;
+      return result.data;
     } catch (error) {
       this.logger.error('Failed to fetch inventory', error);
       throw error;
@@ -108,20 +102,18 @@ export class MarketplaceApiService {
   /**
    * Get orders within date range
    */
-  async getOrders(startDate: string, endDate: string): Promise<any> {
+  async getOrders(startDate: string, endDate: string): Promise<OrdersData> {
     if (!this.accessKey || !this.secretKey) {
       throw new Error('Marketplace API credentials not configured');
     }
 
-    const query = `?createdAtFrom=${startDate}&createdAtTo=${endDate}`;
+    const query = `paidDateTo=${startDate}&paidDateFrom=${endDate}`;
     const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${this.vendorId}/rg/orders`;
 
     try {
-      const result = await this.makeRequest('GET', path, query);
-      this.logger.log(
-        `Successfully fetched orders from ${startDate} to ${endDate}`,
-      );
-      return result;
+      const result = await this.makeRequest<OrdersResponse>('GET', path, query);
+      this.logger.log(`Successfully fetched orders from ${startDate} to ${endDate}`);
+      return result.data;
     } catch (error) {
       this.logger.error('Failed to fetch orders', error);
       throw error;

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as XLSX from 'xlsx';
-import { ChatOpenAI } from '@langchain/openai';
+// import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 
 export interface AdCampaign {
@@ -28,17 +28,17 @@ const CampaignAnalysisSchema = z.object({
 @Injectable()
 export class AdAnalysisService {
   private readonly logger = new Logger(AdAnalysisService.name);
-  private readonly llm: ChatOpenAI;
+  // private readonly llm: ChatOpenAI;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    
+
     if (apiKey) {
-      this.llm = new ChatOpenAI({
-        modelName: 'gpt-4o-mini',
-        temperature: 0.3,
-        openAIApiKey: apiKey,
-      });
+      // this.llm = new ChatOpenAI({
+      //   modelName: 'gpt-4o-mini',
+      //   temperature: 0.3,
+      //   openAIApiKey: apiKey,
+      // });
     }
   }
 
@@ -69,10 +69,10 @@ export class AdAnalysisService {
    */
   async analyzeCampaigns(campaigns: AdCampaign[]): Promise<AnalysisResult[]> {
     // Fallback to heuristic if OpenAI is not configured
-    if (!this.llm) {
-      this.logger.warn('OpenAI API key not configured, using heuristic analysis');
-      return this.heuristicAnalysis(campaigns);
-    }
+    // if (!this.llm) {
+    //   this.logger.warn('OpenAI API key not configured, using heuristic analysis');
+    //   return this.heuristicAnalysis(campaigns);
+    // }
 
     try {
       const results: AnalysisResult[] = [];
@@ -80,9 +80,9 @@ export class AdAnalysisService {
       // Analyze campaigns in batches to avoid token limits
       for (const campaign of campaigns) {
         const prompt = this.buildAnalysisPrompt(campaign);
-        const response = await this.llm.invoke(prompt);
-        
-        const analysis = this.parseAIResponse(response.content as string, campaign);
+        // const response = await this.llm.invoke(prompt);
+
+        const analysis = this.parseAIResponse('', campaign);
         results.push(analysis);
       }
 
