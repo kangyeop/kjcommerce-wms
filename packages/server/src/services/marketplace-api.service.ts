@@ -93,7 +93,7 @@ export class MarketplaceApiService {
       throw new Error('Marketplace API credentials not configured');
     }
 
-    const path = `/v2/providers/openapi/apis/api/v4/vendors/${this.vendorId}/inventories`;
+    const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${this.vendorId}/rg/inventory/summaries`;
 
     try {
       const result = await this.makeRequest('GET', path);
@@ -114,7 +114,7 @@ export class MarketplaceApiService {
     }
 
     const query = `?createdAtFrom=${startDate}&createdAtTo=${endDate}`;
-    const path = `/v2/providers/openapi/apis/api/v4/vendors/${this.vendorId}/ordersheets`;
+    const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${this.vendorId}/rg/orders`;
 
     try {
       const result = await this.makeRequest('GET', path, query);
