@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Product } from '@/types';
 
 // 로컬 타입 정의는 전역 타입을 사용하기 때문에 제거
 
-const ProductRegistrationPage = () => {
+export const ProductRegistrationPage: FC = () => {
   const queryClient = useQueryClient();
 
   // 제품 목록 조회 쿼리
@@ -376,4 +376,4 @@ const ProductRegistrationPage = () => {
   );
 };
 
-export default ProductRegistrationPage;
+

@@ -1,3 +1,4 @@
+import { FC } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Package, 
@@ -7,7 +8,7 @@ import {
   Warehouse 
 } from 'lucide-react'
 
-const HomePage = () => {
+export const HomePage: FC = () => {
   const cards = [
     {
       title: '제품 관리',
@@ -112,5 +113,3 @@ const HomePage = () => {
     </div>
   )
 }
-
-export default HomePage

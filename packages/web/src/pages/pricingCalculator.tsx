@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, FC } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,7 @@ import {
   Percent
 } from 'lucide-react'
 
-const PricingCalculatorPage = () => {
+export const PricingCalculatorPage: FC = () => {
   const queryClient = useQueryClient()
   
   // 선택된 발주 ID
@@ -624,4 +624,4 @@ const PricingCalculatorPage = () => {
   )
 }
 
-export default PricingCalculatorPage
+

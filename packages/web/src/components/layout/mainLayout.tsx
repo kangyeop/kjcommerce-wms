@@ -1,6 +1,7 @@
+import { FC } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 
-const MainLayout = () => {
+export const MainLayout: FC = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-primary text-primary-foreground py-4 shadow-md">
@@ -32,5 +33,3 @@ const MainLayout = () => {
     </div>
   )
 }
-
-export default MainLayout

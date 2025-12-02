@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FC } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Warehouse, RefreshCw, AlertCircle, CheckCircle2, Calendar } from 'lucid
 import { marketplaceService } from '@/services/marketplaceService';
 import { InventoryResponse, InventoryItem, OrdersResponse, OrderItem } from '@/types/marketplace.types';
 
-const InventoryPage = () => {
+export const InventoryPage: FC = () => {
   const [apiConfigured, setApiConfigured] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -330,4 +330,3 @@ const InventoryPage = () => {
   );
 };
 
-export default InventoryPage;

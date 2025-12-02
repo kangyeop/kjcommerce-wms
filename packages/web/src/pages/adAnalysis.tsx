@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, FC } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { BarChart3, RefreshCw, Upload, TrendingUp } from 'lucide-react'
 import { adAnalysisService } from '@/services/adAnalysisService'
 
-const AdAnalysisPage = () => {
+export const AdAnalysisPage: FC = () => {
   const [file, setFile] = useState<File | null>(null)
   const [analysisResult, setAnalysisResult] = useState<any[]>([])
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -21,7 +21,7 @@ const AdAnalysisPage = () => {
 
   const analyzeAds = async () => {
     if (!file) return
-
+    
     setIsAnalyzing(true)
     try {
       const response = await adAnalysisService.analyzeReport(file)
@@ -155,4 +155,3 @@ const AdAnalysisPage = () => {
   )
 }
 
-export default AdAnalysisPage

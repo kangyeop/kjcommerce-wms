@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, FC } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { productService } from '@/services'
 
-const ProductFormPage = () => {
+export const ProductFormPage: FC = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -284,4 +284,4 @@ const ProductFormPage = () => {
   )
 }
 
-export default ProductFormPage
+

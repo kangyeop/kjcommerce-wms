@@ -1,16 +1,17 @@
+import { FC } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import SidebarLayout from './components/layout/sidebar-layout'
-import HomePage from './pages/home'
-import ProductListPage from './pages/product-list'
-import ProductFormPage from './pages/product-form'
-import OrderListPage from './pages/order-list'
-import OrderFormPage from './pages/order-form'
-import PricingCalculatorPage from './pages/pricing-calculator'
-import AdAnalysisPage from './pages/ad-analysis'
-import InventoryPage from './pages/inventory'
+import { SidebarLayout } from './components/layout/sidebarLayout'
+import { HomePage } from './pages/home'
+import { ProductListPage } from './pages/productList'
+import { ProductFormPage } from './pages/productForm'
+import { OrderListPage } from './pages/orderList'
+import { OrderFormPage } from './pages/orderForm'
+import { PricingCalculatorPage } from './pages/pricingCalculator'
+import { AdAnalysisPage } from './pages/adAnalysis'
+import { InventoryPage } from './pages/inventory'
 import { QueryProvider } from './context/QueryProvider'
 
-function App() {
+export const App: FC = () => {
   return (
     <QueryProvider>
       <BrowserRouter>
@@ -32,5 +33,3 @@ function App() {
     </QueryProvider>
   )
 }
-
-export default App

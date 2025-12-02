@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, FC } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,7 +19,7 @@ import {
   calculateUnitCost
 } from '@/lib/order-calculations'
 
-const OrderFormPage = () => {
+export const OrderFormPage: FC = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -645,4 +645,3 @@ const OrderFormPage = () => {
   )
 }
 
-export default OrderFormPage

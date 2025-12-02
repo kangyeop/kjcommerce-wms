@@ -1,3 +1,4 @@
+import { FC } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { orderService } from '@/services';
 import { Order } from '@/types';
 
-const OrderListPage = () => {
+export const OrderListPage: FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -115,4 +116,3 @@ const OrderListPage = () => {
   );
 };
 
-export default OrderListPage;

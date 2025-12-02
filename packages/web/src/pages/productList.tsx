@@ -1,3 +1,4 @@
+import { FC } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { productService } from '@/services'
 import { Product } from '@/types'
 
-const ProductListPage = () => {
+export const ProductListPage: FC = () => {
   const navigate = useNavigate()
 
   // 제품 목록 조회
@@ -96,4 +97,4 @@ const ProductListPage = () => {
   )
 }
 
-export default ProductListPage
+

@@ -1,3 +1,4 @@
+import { FC, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { 
   Home, 
@@ -9,9 +10,8 @@ import {
   Menu,
   X
 } from 'lucide-react'
-import { useState } from 'react'
 
-const SidebarLayout = () => {
+export const SidebarLayout: FC = () => {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -114,4 +114,3 @@ const SidebarLayout = () => {
   )
 }
 
-export default SidebarLayout
