@@ -25,13 +25,24 @@ export class MarketplaceApiService {
 
   /**
    * Generate HMAC signature for Marketplace API authentication
+   * Format: yyMMddTHHmmssZ (e.g., 231202T123045Z)
    */
   private generateHmacSignature(
     method: string,
     path: string,
     query: string = '',
   ): string {
-    const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    // Generate timestamp in Coupang's required format: yyMMddTHHmmssZ
+    const now = new Date();
+    const year = now.getUTCFullYear().toString().slice(-2);
+    const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = now.getUTCDate().toString().padStart(2, '0');
+    const hours = now.getUTCHours().toString().padStart(2, '0');
+    const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+    const seconds = now.getUTCSeconds().toString().padStart(2, '0');
+    const timestamp = `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+
+    // Message format: datetime + method + path + query
     const message = `${timestamp}${method}${path}${query}`;
 
     const signature = crypto
