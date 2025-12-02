@@ -126,7 +126,7 @@ const PricingCalculatorPage = () => {
       return
     }
 
-    const sellingPrice = Math.ceil(costBase / denominator / 100) * 100 // 100원 단위 반올림
+    const sellingPrice = Math.ceil(costBase / denominator / 10) * 10 // 10원 단위 반올림
     
     setFormData(prev => ({ ...prev, sellingPrice }))
     calculateResult(sellingPrice)
