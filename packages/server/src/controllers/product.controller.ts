@@ -13,8 +13,8 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
-import { CreateProductDto } from '../dto/product/create-product.dto';
-import { UpdateProductDto } from '../dto/product/update-product.dto';
+import { CreateProductDto } from '../dto/product/createProduct.dto';
+import { UpdateProductDto } from '../dto/product/updateProduct.dto';
 import { Product } from '../entities/product.entity';
 
 @ApiTags('products')

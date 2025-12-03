@@ -40,16 +40,23 @@ export class CreateProductDto {
   options?: string;
 
   @ApiProperty({ description: '묶음 판매 수량', example: 1, default: 1 })
-  @IsOptional()
+  @IsNotEmpty()
   @IsNumber()
   @Min(1)
   @Type(() => Number)
-  unitsPerPackage?: number;
+  unitsPerPackage: number;
 
   @ApiProperty({ description: '쿠팡 배송비 (원)', example: 3000, default: 0 })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  coupangShippingFee: number;
+
+  @ApiProperty({ description: '판매가격 (원)', example: 15000, required: false })
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  coupangShippingFee?: number;
+  sellingPriceKrw?: number;
 }

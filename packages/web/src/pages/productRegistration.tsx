@@ -29,6 +29,7 @@ export const ProductRegistrationPage: FC = () => {
       options?: string;
       unitsPerPackage: number;
       coupangShippingFee: number;
+      sellingPriceKrw?: number;
     }) => productService.create(newProduct),
     onSuccess: () => {
       // 제품 생성 성공 시 제품 목록 재조회
@@ -43,6 +44,7 @@ export const ProductRegistrationPage: FC = () => {
         options: '',
         unitsPerPackage: '1',
         coupangShippingFee: '',
+        sellingPriceKrw: '',
       });
     },
   });
@@ -63,6 +65,7 @@ export const ProductRegistrationPage: FC = () => {
         options?: string;
         unitsPerPackage: number;
         coupangShippingFee: number;
+        sellingPriceKrw?: number;
       };
     }) => productService.update(id, data),
     onSuccess: () => {
@@ -77,6 +80,7 @@ export const ProductRegistrationPage: FC = () => {
         options: '',
         unitsPerPackage: '1',
         coupangShippingFee: '',
+        sellingPriceKrw: '',
       });
     },
   });
@@ -98,6 +102,7 @@ export const ProductRegistrationPage: FC = () => {
     options: '',
     unitsPerPackage: '1',
     coupangShippingFee: '',
+    sellingPriceKrw: '',
   });
 
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
@@ -123,6 +128,7 @@ export const ProductRegistrationPage: FC = () => {
       coupangShippingFee: parseInt(formData.coupangShippingFee || '0') || 0,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
+      ...(formData.sellingPriceKrw && { sellingPriceKrw: parseFloat(formData.sellingPriceKrw) }),
     };
 
     if (editingProduct) {
@@ -145,6 +151,7 @@ export const ProductRegistrationPage: FC = () => {
       options: product.options || '',
       unitsPerPackage: (product.unitsPerPackage || 1).toString(),
       coupangShippingFee: (product.coupangShippingFee || 0).toString(),
+      sellingPriceKrw: (product.sellingPriceKrw || '').toString(),
     });
     // 폼으로 스크롤
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -161,6 +168,7 @@ export const ProductRegistrationPage: FC = () => {
       options: '',
       unitsPerPackage: '1',
       coupangShippingFee: '',
+      sellingPriceKrw: '',
     });
   };
 
@@ -278,6 +286,36 @@ export const ProductRegistrationPage: FC = () => {
                 <p className="text-xs text-muted-foreground">예: 2개 묶음으로 판매하면 2 입력</p>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="coupangShippingFee">쿠팡 배송비 (원)</Label>
+                <Input
+                  id="coupangShippingFee"
+                  name="coupangShippingFee"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.coupangShippingFee}
+                  onChange={handleChange}
+                  placeholder="쿠팡 배송비 (기본: 0원)"
+                />
+                <p className="text-xs text-muted-foreground">쿠팡 로켓배송 등 배송비</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sellingPriceKrw">판매가격 (원)</Label>
+                <Input
+                  id="sellingPriceKrw"
+                  name="sellingPriceKrw"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.sellingPriceKrw}
+                  onChange={handleChange}
+                  placeholder="판매가격 (선택사항)"
+                />
+                <p className="text-xs text-muted-foreground">기본 판매가격 (가격 계산기에서 자동으로 설정됨)</p>
+              </div>
+
               <div className="flex gap-2">
                 <Button type="submit" className="flex-1">
                   {editingProduct ? '수정하기' : '등록하기'}
@@ -309,6 +347,7 @@ export const ProductRegistrationPage: FC = () => {
                       <th className="px-4 py-2 text-right">개당 무게</th>
                       <th className="px-4 py-2 text-right">개당 부피 (CBM)</th>
                       <th className="px-4 py-2 text-center">묶음 수량</th>
+                      <th className="px-4 py-2 text-right">판매가격</th>
                       <th className="px-4 py-2 text-left">상품 URL</th>
                       <th className="px-4 py-2 text-left">옵션</th>
                       <th className="px-4 py-2 text-center">작업</th>
@@ -328,6 +367,13 @@ export const ProductRegistrationPage: FC = () => {
                           {product.cbmPerUnit ? product.cbmPerUnit.toLocaleString() : '-'}
                         </td>
                         <td className="px-4 py-2 text-center">{product.unitsPerPackage || 1}개</td>
+                        <td className="px-4 py-2 text-right">
+                          {product.sellingPriceKrw ? (
+                            <span className="font-medium text-green-600">{product.sellingPriceKrw.toLocaleString()}원</span>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2">
                           {product.productUrl ? (
                             <a

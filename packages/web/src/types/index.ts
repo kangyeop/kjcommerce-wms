@@ -9,6 +9,7 @@ export interface Product {
   options?: string;
   unitsPerPackage: number;
   coupangShippingFee: number;
+  sellingPriceKrw?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,4 +123,6 @@ export interface CreateProductDto {
   productUrl?: string;
   options?: string;
   unitsPerPackage: number;
+  coupangShippingFee: number;
+  sellingPriceKrw?: number;
 }

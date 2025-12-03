@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { orderService, pricingService } from '@/services'
+import { orderService, pricingService, productService } from '@/services'
 import { Order, Pricing, CreatePricingDto } from '@/types'
 import { calculateStorageFee } from '@/lib/storage-fee-calculator'
 import { 
@@ -97,8 +97,12 @@ export const PricingCalculatorPage: FC = () => {
         // 저장된 값으로 정확한 grossMargin을 알기 어려우므로 재계산 트리거
         setTimeout(() => calculatePriceFromMargin(pricing.marginRate), 0)
       }
+    } else if (selectedItem?.product?.sellingPriceKrw) {
+      // 가격 정보가 없지만 상품에 판매가격이 설정되어 있으면 로드
+      setFormData(prev => ({ ...prev, sellingPrice: selectedItem.product!.sellingPriceKrw! }))
+      calculateMarginFromPrice(selectedItem.product.sellingPriceKrw)
     }
-  }, [selectedOrderItemId, existingPricings])
+  }, [selectedOrderItemId, existingPricings, selectedItem])
 
   // 마진율 변경 시 판매가 계산
   const calculatePriceFromMargin = (newMarginRate?: number) => {
@@ -228,6 +232,33 @@ export const PricingCalculatorPage: FC = () => {
     })
   }
 
+  // 상품에 판매가격 저장 mutation
+  const saveToProductMutation = useMutation({
+    mutationFn: ({ productId, sellingPrice }: { productId: number; sellingPrice: number }) =>
+      productService.update(productId, {
+        sellingPriceKrw: sellingPrice
+      } as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
+      alert('상품의 판매가격이 업데이트되었습니다.')
+    },
+    onError: () => {
+      alert('상품 업데이트 중 오류가 발생했습니다.')
+    }
+  })
+
+  const handleSaveToProduct = () => {
+    if (!selectedItem?.productId || !calculationResult) return
+    
+    if (window.confirm('계산된 판매가격을 상품의 기본 판매가격으로 저장하시겠습니까?')) {
+      saveToProductMutation.mutate({
+        productId: selectedItem.productId,
+        sellingPrice: calculationResult.sellingPrice
+      })
+    }
+  }
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-6 bg-slate-50/50 min-h-screen">
       <div className="flex justify-between items-center">
@@ -241,15 +272,27 @@ export const PricingCalculatorPage: FC = () => {
           </p>
         </div>
         {selectedItem && calculationResult && (
-           <Button 
-           size="lg"
-           className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 transition-all hover:scale-105"
-           onClick={handleSave}
-           disabled={savePricingMutation.isPending}
-         >
-           <Save className="w-5 h-5 mr-2" />
-           {savePricingMutation.isPending ? '저장 중...' : '가격 정보 저장'}
-         </Button>
+          <div className="flex gap-2">
+            <Button 
+              size="lg"
+              variant="outline"
+              className="border-green-600 text-green-600 hover:bg-green-50 shadow-lg transition-all hover:scale-105"
+              onClick={handleSaveToProduct}
+              disabled={saveToProductMutation.isPending}
+            >
+              <Save className="w-5 h-5 mr-2" />
+              {saveToProductMutation.isPending ? '저장 중...' : '상품에 저장'}
+            </Button>
+            <Button 
+              size="lg"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 transition-all hover:scale-105"
+              onClick={handleSave}
+              disabled={savePricingMutation.isPending}
+            >
+              <Save className="w-5 h-5 mr-2" />
+              {savePricingMutation.isPending ? '저장 중...' : '가격 정보 저장'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -376,6 +419,24 @@ export const PricingCalculatorPage: FC = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Product Selling Price Indicator */}
+            {selectedItem?.product?.sellingPriceKrw && (
+              <Card className="border-green-200 bg-green-50/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-5 h-5 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">상품 기본 판매가격</span>
+                    </div>
+                    <span className="text-lg font-bold text-green-600">
+                      {selectedItem.product.sellingPriceKrw.toLocaleString()}원
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">이 상품에 저장된 기본 판매가격입니다</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* 3. Main Control & Analysis Section */}

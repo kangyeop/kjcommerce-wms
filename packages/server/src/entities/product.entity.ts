@@ -28,6 +28,9 @@ export class Product extends BaseEntity {
   @Column({ name: 'coupang_shipping_fee', type: 'int', default: 0 })
   coupangShippingFee: number;
 
+  @Column({ name: 'selling_price_krw', type: 'float', nullable: true })
+  sellingPriceKrw: number;
+
   // Relationships
   @OneToMany(() => OrderItem, (orderItem) => orderItem.product)
   orders: OrderItem[];
