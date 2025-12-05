@@ -32,6 +32,7 @@ export const ProductFormPage: FC = () => {
     options: '',
     unitsPerPackage: '1',
     coupangShippingFee: '',
+    sellingPriceKrw: '',
   })
 
   // 기존 데이터 로드
@@ -48,6 +49,7 @@ export const ProductFormPage: FC = () => {
         options: existingProduct.options || '',
         unitsPerPackage: (existingProduct.unitsPerPackage || 1).toString(),
         coupangShippingFee: (existingProduct.coupangShippingFee || 0).toString(),
+        sellingPriceKrw: (existingProduct.sellingPriceKrw || '').toString(),
       })
     }
   }, [existingProduct])
@@ -106,6 +108,7 @@ export const ProductFormPage: FC = () => {
       coupangShippingFee: parseInt(formData.coupangShippingFee) || 0,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
+      ...(formData.sellingPriceKrw && { sellingPriceKrw: parseFloat(formData.sellingPriceKrw) }),
     }
 
     if (isEditMode) {
@@ -270,6 +273,23 @@ export const ProductFormPage: FC = () => {
               />
               <p className="text-xs text-muted-foreground">
                 판매가격 계산 시 사용됩니다 (기본값: 0원)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sellingPriceKrw">쿠팡 판매가 (원)</Label>
+              <Input 
+                id="sellingPriceKrw"
+                name="sellingPriceKrw"
+                type="number"
+                min="0"
+                step="100"
+                value={formData.sellingPriceKrw}
+                onChange={handleChange}
+                placeholder="판매가격을 입력하세요"
+              />
+              <p className="text-xs text-muted-foreground">
+                기본 판매가격 (선택사항)
               </p>
             </div>
 
