@@ -6,6 +6,7 @@ import { OrderModule } from './modules/order.module';
 import { ExchangeRateModule } from './modules/exchange-rate.module';
 import { MarketplaceModule } from './modules/marketplace.module';
 import { AdAnalysisModule } from './modules/ad-analysis.module';
+import { WingReporterModule } from './modules/wing-reporter.module';
 import { AppController } from './app.controller';
 import { PricingController } from './controllers/pricing.controller';
 import { PricingService } from './services/pricing.service';
@@ -27,6 +28,7 @@ import { PricingService } from './services/pricing.service';
     ExchangeRateModule,
     MarketplaceModule,
     AdAnalysisModule,
+    WingReporterModule,
   ],
   controllers: [AppController],
   providers: [],

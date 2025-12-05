@@ -172,10 +172,19 @@ export const PricingCalculatorPage: FC = () => {
     const totalMargin = sellingPrice - bundleCost - coupangShippingFee - commission
 
     // 3. 보관료 계산 (묶음 전체의 CBM 사용)
-    const cbmPerUnit = selectedItem.product?.cbmPerUnit || 0
-    const bundleCbm = cbmPerUnit * unitsPerPackage
+    const widthCm = selectedItem.product?.widthCm || 0
+    const depthCm = selectedItem.product?.depthCm || 0
+    const heightCm = selectedItem.product?.heightCm || 0
+    
+    // 묶음 전체의 치수 계산 (개당 치수 × 묶음 개수)
+    const bundleWidthCm = widthCm * unitsPerPackage
+    const bundleDepthCm = depthCm
+    const bundleHeightCm = heightCm
+    
     const storageFee = calculateStorageFee({
-      cbmPerUnit: bundleCbm,
+      widthCm: bundleWidthCm,
+      depthCm: bundleDepthCm,
+      heightCm: bundleHeightCm,
       maxDays: formData.storageFeeInputs.maxDays,
       dailySales: formData.storageFeeInputs.dailySales
     })

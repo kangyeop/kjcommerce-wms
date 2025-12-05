@@ -1,6 +1,8 @@
 export interface StorageFeeInput {
   maxDays: number;
-  cbmPerUnit: number;
+  widthCm: number;
+  depthCm: number;
+  heightCm: number;
   dailySales: number;
 }
 
@@ -20,9 +22,14 @@ const getRate = (day: number): number => {
 
 export const calculateStorageFee = ({
   maxDays,
-  cbmPerUnit,
+  widthCm,
+  depthCm,
+  heightCm,
   dailySales,
 }: StorageFeeInput): StorageFeeOutput => {
+  // Calculate CBM from dimensions: width × depth × height / 1,000,000
+  const cbmPerUnit = (widthCm * depthCm * heightCm) / 1000000
+  
   // 1개 판매될 때마다 재고가 줄어드는 속도
   // 예: 하루 10개 판매, 1개당 CBM 0.01
   // 1개 판매 시 발생하는 보관료 = (판매될 때까지 걸리는 일수) 동안의 보관료 합계 / 판매량?

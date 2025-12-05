@@ -22,12 +22,26 @@ export class CreateProductDto {
   @Type(() => Number)
   weightPerUnit: number;
 
-  @ApiProperty({ description: '단위당 부피 (CBM)', required: false, default: 0 })
+  @ApiProperty({ description: '가로 (cm)', required: false, default: 0 })
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  cbmPerUnit?: number;
+  widthCm?: number;
+
+  @ApiProperty({ description: '세로 (cm)', required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  depthCm?: number;
+
+  @ApiProperty({ description: '높이 (cm)', required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  heightCm?: number;
 
   @ApiProperty({ description: '상품 URL', required: false })
   @IsOptional()

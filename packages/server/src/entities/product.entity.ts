@@ -13,8 +13,14 @@ export class Product extends BaseEntity {
   @Column({ name: 'weight_per_unit', type: 'float' })
   weightPerUnit: number;
 
-  @Column({ name: 'cbm_per_unit', type: 'float', default: 0 })
-  cbmPerUnit: number;
+  @Column({ name: 'width_cm', type: 'float', default: 0 })
+  widthCm: number;
+
+  @Column({ name: 'depth_cm', type: 'float', default: 0 })
+  depthCm: number;
+
+  @Column({ name: 'height_cm', type: 'float', default: 0 })
+  heightCm: number;
 
   @Column({ name: 'product_url', type: 'text', nullable: true })
   productUrl: string;

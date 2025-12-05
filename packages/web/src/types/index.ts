@@ -4,7 +4,9 @@ export interface Product {
   name: string;
   pricePerUnitYuan: number;
   weightPerUnit: number;
-  cbmPerUnit: number;
+  widthCm: number;
+  depthCm: number;
+  heightCm: number;
   productUrl?: string;
   options?: string;
   unitsPerPackage: number;
@@ -119,7 +121,9 @@ export interface CreateProductDto {
   name: string;
   pricePerUnitYuan: number;
   weightPerUnit: number;
-  cbmPerUnit: number;
+  widthCm: number;
+  depthCm: number;
+  heightCm: number;
   productUrl?: string;
   options?: string;
   unitsPerPackage: number;

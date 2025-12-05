@@ -24,7 +24,9 @@ export const ProductRegistrationPage: FC = () => {
       name: string;
       pricePerUnitYuan: number;
       weightPerUnit: number;
-      cbmPerUnit: number;
+      widthCm: number;
+      depthCm: number;
+      heightCm: number;
       productUrl?: string;
       options?: string;
       unitsPerPackage: number;
@@ -39,7 +41,9 @@ export const ProductRegistrationPage: FC = () => {
         name: '',
         pricePerUnitYuan: '',
         weightPerUnit: '',
-        cbmPerUnit: '',
+        widthCm: '',
+        depthCm: '',
+        heightCm: '',
         productUrl: '',
         options: '',
         unitsPerPackage: '1',
@@ -60,7 +64,9 @@ export const ProductRegistrationPage: FC = () => {
         name: string;
         pricePerUnitYuan: number;
         weightPerUnit: number;
-        cbmPerUnit: number;
+        widthCm: number;
+        depthCm: number;
+        heightCm: number;
         productUrl?: string;
         options?: string;
         unitsPerPackage: number;
@@ -75,7 +81,9 @@ export const ProductRegistrationPage: FC = () => {
         name: '',
         pricePerUnitYuan: '',
         weightPerUnit: '',
-        cbmPerUnit: '', // Added cbmPerUnit
+        widthCm: '',
+        depthCm: '',
+        heightCm: '',
         productUrl: '',
         options: '',
         unitsPerPackage: '1',
@@ -95,9 +103,11 @@ export const ProductRegistrationPage: FC = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    pricePerUnitYuan: '', // Changed to string
-    weightPerUnit: '', // Changed to string
-    cbmPerUnit: '', // Changed to string
+    pricePerUnitYuan: '',
+    weightPerUnit: '',
+    widthCm: '',
+    depthCm: '',
+    heightCm: '',
     productUrl: '',
     options: '',
     unitsPerPackage: '1',
@@ -123,8 +133,10 @@ export const ProductRegistrationPage: FC = () => {
       name: formData.name,
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
-      cbmPerUnit: parseFloat(formData.cbmPerUnit) || 0,
-      unitsPerPackage: parseInt(formData.unitsPerPackage || '1'), // Ensure default '1' if empty string
+      widthCm: parseFloat(formData.widthCm) || 0,
+      depthCm: parseFloat(formData.depthCm) || 0,
+      heightCm: parseFloat(formData.heightCm) || 0,
+      unitsPerPackage: parseInt(formData.unitsPerPackage || '1'),
       coupangShippingFee: parseInt(formData.coupangShippingFee || '0') || 0,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
@@ -146,7 +158,9 @@ export const ProductRegistrationPage: FC = () => {
       name: product.name,
       pricePerUnitYuan: product.pricePerUnitYuan.toString(),
       weightPerUnit: product.weightPerUnit.toString(),
-      cbmPerUnit: (product.cbmPerUnit || 0).toString(), // Added cbmPerUnit
+      widthCm: (product.widthCm || 0).toString(),
+      depthCm: (product.depthCm || 0).toString(),
+      heightCm: (product.heightCm || 0).toString(),
       productUrl: product.productUrl || '',
       options: product.options || '',
       unitsPerPackage: (product.unitsPerPackage || 1).toString(),
@@ -163,7 +177,9 @@ export const ProductRegistrationPage: FC = () => {
       name: '',
       pricePerUnitYuan: '',
       weightPerUnit: '',
-      cbmPerUnit: '',
+      widthCm: '',
+      depthCm: '',
+      heightCm: '',
       productUrl: '',
       options: '',
       unitsPerPackage: '1',
@@ -231,20 +247,52 @@ export const ProductRegistrationPage: FC = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="cbmPerUnit">개당 부피 (CBM)</Label>
-                <Input
-                  id="cbmPerUnit"
-                  name="cbmPerUnit" // Added name attribute
-                  type="number"
-                  min="0"
-                  step="0.000001"
-                  value={formData.cbmPerUnit}
-                  onChange={handleChange} // Changed to use handleChange
-                  placeholder="개당 부피를 입력하세요 (CBM)" // Added placeholder
-                  required
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="widthCm">가로 (cm)</Label>
+                  <Input
+                    id="widthCm"
+                    name="widthCm"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.widthCm}
+                    onChange={handleChange}
+                    placeholder="가로"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="depthCm">세로 (cm)</Label>
+                  <Input
+                    id="depthCm"
+                    name="depthCm"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.depthCm}
+                    onChange={handleChange}
+                    placeholder="세로"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="heightCm">높이 (cm)</Label>
+                  <Input
+                    id="heightCm"
+                    name="heightCm"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.heightCm}
+                    onChange={handleChange}
+                    placeholder="높이"
+                  />
+                </div>
               </div>
+              {(formData.widthCm && formData.depthCm && formData.heightCm) && (
+                <p className="text-sm text-muted-foreground">
+                  계산된 CBM: {((parseFloat(formData.widthCm) * parseFloat(formData.depthCm) * parseFloat(formData.heightCm)) / 1000000).toFixed(6)} m³
+                </p>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="productUrl">상품 URL</Label>
@@ -345,7 +393,7 @@ export const ProductRegistrationPage: FC = () => {
                       <th className="px-4 py-2 text-left">제품명</th>
                       <th className="px-4 py-2 text-right">개당 가격 (위안)</th>
                       <th className="px-4 py-2 text-right">개당 무게</th>
-                      <th className="px-4 py-2 text-right">개당 부피 (CBM)</th>
+                      <th className="px-4 py-2 text-right">치수 (cm)</th>
                       <th className="px-4 py-2 text-center">묶음 수량</th>
                       <th className="px-4 py-2 text-right">판매가격</th>
                       <th className="px-4 py-2 text-left">상품 URL</th>
@@ -364,7 +412,9 @@ export const ProductRegistrationPage: FC = () => {
                           {product.weightPerUnit.toLocaleString()} kg
                         </td>
                         <td className="px-4 py-2 text-right">
-                          {product.cbmPerUnit ? product.cbmPerUnit.toLocaleString() : '-'}
+                          {(product.widthCm && product.depthCm && product.heightCm) ? (
+                            `${product.widthCm} × ${product.depthCm} × ${product.heightCm}`
+                          ) : '-'}
                         </td>
                         <td className="px-4 py-2 text-center">{product.unitsPerPackage || 1}개</td>
                         <td className="px-4 py-2 text-right">

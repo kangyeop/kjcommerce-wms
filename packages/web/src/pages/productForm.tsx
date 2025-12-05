@@ -24,7 +24,9 @@ export const ProductFormPage: FC = () => {
     name: '',
     pricePerUnitYuan: '',
     weightPerUnit: '',
-    cbmPerUnit: '',
+    widthCm: '',
+    depthCm: '',
+    heightCm: '',
     productUrl: '',
     options: '',
     unitsPerPackage: '1',
@@ -34,14 +36,13 @@ export const ProductFormPage: FC = () => {
   // 기존 데이터 로드
   useEffect(() => {
     if (existingProduct) {
-      // CBM(m³)을 cm³로 변환: 1 m³ = 1,000,000 cm³
-      const cbmInCm3 = existingProduct.cbmPerUnit ? Math.round(existingProduct.cbmPerUnit * 1000000) : 0
-      
       setFormData({
         name: existingProduct.name,
         pricePerUnitYuan: existingProduct.pricePerUnitYuan.toString(),
         weightPerUnit: existingProduct.weightPerUnit.toString(),
-        cbmPerUnit: cbmInCm3.toString(),
+        widthCm: (existingProduct.widthCm || 0).toString(),
+        depthCm: (existingProduct.depthCm || 0).toString(),
+        heightCm: (existingProduct.heightCm || 0).toString(),
         productUrl: existingProduct.productUrl || '',
         options: existingProduct.options || '',
         unitsPerPackage: (existingProduct.unitsPerPackage || 1).toString(),
@@ -92,14 +93,13 @@ export const ProductFormPage: FC = () => {
       return
     }
 
-    // cm³를 CBM(m³)으로 변환: 1 m³ = 1,000,000 cm³
-    const cbmValue = formData.cbmPerUnit ? parseFloat(formData.cbmPerUnit) / 1000000 : 0
-
     const productData = {
       name: formData.name,
       pricePerUnitYuan: parseFloat(formData.pricePerUnitYuan),
       weightPerUnit: parseFloat(formData.weightPerUnit),
-      cbmPerUnit: cbmValue,
+      widthCm: parseFloat(formData.widthCm) || 0,
+      depthCm: parseFloat(formData.depthCm) || 0,
+      heightCm: parseFloat(formData.heightCm) || 0,
       unitsPerPackage: parseInt(formData.unitsPerPackage) || 1,
       coupangShippingFee: parseInt(formData.coupangShippingFee) || 0,
       ...(formData.productUrl && { productUrl: formData.productUrl }),
@@ -189,22 +189,52 @@ export const ProductFormPage: FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="cbmPerUnit">개당 부피 (cm³)</Label>
-              <Input 
-                id="cbmPerUnit"
-                name="cbmPerUnit"
-                type="number"
-                min="0"
-                step="1"
-                value={formData.cbmPerUnit}
-                onChange={handleChange}
-                placeholder="가로 × 세로 × 높이 (cm 단위)"
-              />
-              <p className="text-xs text-muted-foreground">
-                예: 10cm × 10cm × 10cm = 1000 입력 (자동으로 CBM으로 변환됩니다)
-              </p>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="widthCm">가로 (cm)</Label>
+                <Input 
+                  id="widthCm"
+                  name="widthCm"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={formData.widthCm}
+                  onChange={handleChange}
+                  placeholder="가로"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="depthCm">세로 (cm)</Label>
+                <Input 
+                  id="depthCm"
+                  name="depthCm"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={formData.depthCm}
+                  onChange={handleChange}
+                  placeholder="세로"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="heightCm">높이 (cm)</Label>
+                <Input 
+                  id="heightCm"
+                  name="heightCm"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={formData.heightCm}
+                  onChange={handleChange}
+                  placeholder="높이"
+                />
+              </div>
             </div>
+            {(formData.widthCm && formData.depthCm && formData.heightCm) && (
+              <p className="text-sm text-muted-foreground">
+                계산된 CBM: {((parseFloat(formData.widthCm) * parseFloat(formData.depthCm) * parseFloat(formData.heightCm)) / 1000000).toFixed(6)} m³
+              </p>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="unitsPerPackage">묶음 판매 수량 *</Label>
