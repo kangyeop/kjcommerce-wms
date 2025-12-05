@@ -1,0 +1,31 @@
+{
+  "name": "@kjcommerce/wing-reporter",
+  "version": "1.0.0",
+  "description": "Coupang Wing Ad Report Downloader",
+  "main": "dist/handler.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "package": "zip -r wing-reporter.zip dist node_modules",
+    "deploy": "aws lambda update-function-code --function-name wing-ad-reporter --zip-file fileb://wing-reporter.zip",
+    "test": "jest",
+    "test:login": "tsc && node dist/test-login.js"
+  },
+  "dependencies": {
+    "playwright-core": "^1.41.2",
+    "exceljs": "^4.4.0",
+    "aws-sdk": "^2.1555.0",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.134",
+    "@types/node": "^20.11.19",
+    "typescript": "^5.3.3",
+    "playwright": "^1.41.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2"
+  },
+  "author": "KJ Commerce",
+  "license": "UNLICENSED",
+  "private": true
+}
