@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, FC } from 'react'
+import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -120,7 +121,7 @@ export const OrderFormPage: FC = () => {
   // 탭 삭제 (상품 제거)
   const removeProductTab = useCallback((index: number) => {
     if (orderItems.length === 1) {
-      alert('최소 1개의 상품은 있어야 합니다.')
+      toast.error('최소 1개의 상품은 있어야 합니다.')
       return
     }
     const newItems = orderItems.filter((_, i) => i !== index)
@@ -151,15 +152,23 @@ export const OrderFormPage: FC = () => {
         const inspectionFee = calculateInspectionFee(originalCost)
         const packagingFee = calculatePackagingFee(currentItem.quantity, selectedProduct.unitsPerPackage || 1)
         
-        updateCurrentItem({
-          originalCostYuan: originalCost,
-          serviceFeeYuan: serviceFee,
-          inspectionFeeYuan: inspectionFee,
-          packagingFeeYuan: packagingFee,
-        })
+        // 값이 변경되었을 때만 업데이트하여 무한 루프 방지 및 성능 최적화
+        if (
+          currentItem.originalCostYuan !== originalCost ||
+          currentItem.serviceFeeYuan !== serviceFee ||
+          currentItem.inspectionFeeYuan !== inspectionFee ||
+          currentItem.packagingFeeYuan !== packagingFee
+        ) {
+          updateCurrentItem({
+            originalCostYuan: originalCost,
+            serviceFeeYuan: serviceFee,
+            inspectionFeeYuan: inspectionFee,
+            packagingFeeYuan: packagingFee,
+          })
+        }
       }
     }
-  }, [currentItem.productId, currentItem.quantity, products, updateCurrentItem])
+  }, [currentItem.productId, currentItem.quantity, products, currentItem.originalCostYuan, currentItem.serviceFeeYuan, currentItem.inspectionFeeYuan, currentItem.packagingFeeYuan])
 
   // 각 아이템의 총 원가 및 개당 원가 계산
   useEffect(() => {
@@ -279,7 +288,7 @@ export const OrderFormPage: FC = () => {
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.message || '발주 등록 중 오류가 발생했습니다.'
-      alert(errorMessage)
+      toast.error(errorMessage)
     }
   })
 
@@ -293,7 +302,7 @@ export const OrderFormPage: FC = () => {
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.message || '발주 수정 중 오류가 발생했습니다.'
-      alert(errorMessage)
+      toast.error(errorMessage)
     }
   })
 
@@ -306,7 +315,7 @@ export const OrderFormPage: FC = () => {
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.message || '발주 삭제 중 오류가 발생했습니다.'
-      alert(errorMessage)
+      toast.error(errorMessage)
     }
   })
 
@@ -352,7 +361,7 @@ export const OrderFormPage: FC = () => {
   const isPending = createOrderMutation.isPending || updateOrderMutation.isPending
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="mx-auto space-y-6 max-w-6xl">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{isEditMode ? '발주 수정' : '새 발주 등록'}</h1>
         <div className="flex gap-2">
@@ -378,16 +387,16 @@ export const OrderFormPage: FC = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* 상품 탭 */}
-            <div className="border rounded-md p-4 bg-slate-50">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">상품 목록</h3>
+            <div className="p-4 rounded-md border bg-slate-50">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">상품 목록</h3>
                 <Button type="button" onClick={addProductTab} variant="outline" size="sm">
                   + 상품 추가
                 </Button>
               </div>
               
               {/* 탭 헤더 */}
-              <div className="flex gap-2 mb-4 flex-wrap">
+              <div className="flex flex-wrap gap-2 mb-4">
                 {orderItems.map((item, index) => {
                   const product = products.find(p => p.id === item.productId)
                   return (
@@ -408,7 +417,7 @@ export const OrderFormPage: FC = () => {
                             e.stopPropagation()
                             removeProductTab(index)
                           }}
-                          className="text-red-500 hover:text-red-700 ml-2"
+                          className="ml-2 text-red-500 hover:text-red-700"
                         >
                           ✕
                         </button>
@@ -419,20 +428,20 @@ export const OrderFormPage: FC = () => {
               </div>
 
               {/* 1차 결제 - 상품별 비용 */}
-              <div className="bg-white border-2 border-blue-500 rounded-b-md rounded-tr-md p-4 space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm font-bold border border-blue-200">
+              <div className="p-4 space-y-4 bg-white rounded-b-md rounded-tr-md border-2 border-blue-500">
+                <div className="flex gap-2 items-center mb-4">
+                  <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded border border-blue-200">
                     1차 결제
                   </span>
                   <span className="text-sm text-gray-600">상품 매입 및 중국 내 이동 (상품별)</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor={`product-${activeTabIndex}`}>제품</Label>
                     <select
                       id={`product-${activeTabIndex}`}
-                      className="w-full border border-input rounded-md h-10 px-3"
+                      className="px-3 w-full h-10 rounded-md border border-input"
                       value={currentItem.productId}
                       onChange={(e) => updateCurrentItem({ productId: Number(e.target.value) })}
                       required
@@ -460,14 +469,14 @@ export const OrderFormPage: FC = () => {
 
                   <div className="space-y-2">
                     <Label>원가 (위안) - 자동계산</Label>
-                    <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                    <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
                       {currentItem.originalCostYuan.toLocaleString()}
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label>구매대행 수수료 (위안) - 자동계산</Label>
-                    <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                    <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
                       {currentItem.serviceFeeYuan.toLocaleString()}
                     </div>
                   </div>
@@ -485,7 +494,7 @@ export const OrderFormPage: FC = () => {
 
                   <div className="space-y-2">
                     <Label>포장비 (위안) - 자동계산</Label>
-                    <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                    <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
                       {currentItem.packagingFeeYuan.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
@@ -502,7 +511,7 @@ export const OrderFormPage: FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 p-3 rounded border mt-4">
+                <div className="p-3 mt-4 bg-blue-50 rounded border">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">이 상품의 총 원가:</span>
@@ -522,9 +531,9 @@ export const OrderFormPage: FC = () => {
             </div>
 
             {/* 기본 정보 */}
-            <div className="border p-4 rounded-md">
-              <h3 className="font-semibold text-lg mb-4">기본 정보</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-md border">
+              <h3 className="mb-4 text-lg font-semibold">기본 정보</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="exchangeRate">환율 (1위안 = x원)</Label>
                   <Input
@@ -551,15 +560,15 @@ export const OrderFormPage: FC = () => {
             </div>
 
             {/* 2차 결제 - 전체 합산 비용 */}
-            <div className="border p-4 rounded-md bg-green-50/50">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="bg-green-100 text-green-700 px-3 py-1 rounded text-sm font-bold border border-green-200">
+            <div className="p-4 rounded-md border bg-green-50/50">
+              <div className="flex gap-2 items-center mb-4">
+                <span className="px-3 py-1 text-sm font-bold text-green-700 bg-green-100 rounded border border-green-200">
                   2차 결제
                 </span>
                 <span className="text-sm text-gray-600">국제 배송 및 통관 (전체 합산)</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="internationalShipping">해외 배송비 (원) - 자동계산/수정가능</Label>
                   <Input
@@ -585,7 +594,7 @@ export const OrderFormPage: FC = () => {
 
                 <div className="space-y-2">
                   <Label>과세가격 (원) - 자동계산</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
                     {formData.taxableAmountKrw.toLocaleString()}
                   </div>
                 </div>
@@ -602,14 +611,14 @@ export const OrderFormPage: FC = () => {
 
                 <div className="space-y-2">
                   <Label>관세 (원) - 자동계산</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
                     {formData.dutyKrw.toLocaleString()}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label>부가세 (원) - 자동계산</Label>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
                     {formData.vatKrw.toLocaleString()}
                   </div>
                 </div>
@@ -617,9 +626,9 @@ export const OrderFormPage: FC = () => {
             </div>
 
             {/* 총 원가 표시 */}
-            <div className="border-2 border-blue-600 p-4 rounded-md bg-blue-50">
+            <div className="p-4 bg-blue-50 rounded-md border-2 border-blue-600">
               <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-lg">전체 발주 총 원가</h3>
+                <h3 className="text-lg font-semibold">전체 발주 총 원가</h3>
                 <div className="text-3xl font-bold text-blue-600">
                   {formData.totalCostKrw.toLocaleString()}원
                 </div>
@@ -630,7 +639,7 @@ export const OrderFormPage: FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => navigate('/orders')}>
                 취소
               </Button>

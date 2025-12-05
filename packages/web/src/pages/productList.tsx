@@ -48,6 +48,8 @@ export const ProductListPage: FC = () => {
                     <th className="px-4 py-3 text-right font-medium">개당 가격</th>
                     <th className="px-4 py-3 text-right font-medium">개당 무게</th>
                     <th className="px-4 py-3 text-center font-medium">묶음 수량</th>
+                    <th className="px-4 py-3 text-right font-medium">쿠팡 배송비</th>
+                    <th className="px-4 py-3 text-right font-medium">쿠팡 판매가</th>
                     <th className="px-4 py-3 text-left font-medium">상품 URL</th>
                     <th className="px-4 py-3 text-left font-medium">옵션</th>
                   </tr>
@@ -63,6 +65,20 @@ export const ProductListPage: FC = () => {
                       <td className="px-4 py-3 text-right">{product.pricePerUnitYuan.toLocaleString()} 위안</td>
                       <td className="px-4 py-3 text-right">{product.weightPerUnit.toLocaleString()} g</td>
                       <td className="px-4 py-3 text-center">{product.unitsPerPackage || 1}개</td>
+                      <td className="px-4 py-3 text-right">
+                        {product.coupangShippingFee ? (
+                          <span>{product.coupangShippingFee.toLocaleString()}원</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {product.sellingPriceKrw ? (
+                          <span className="font-medium text-green-600">{product.sellingPriceKrw.toLocaleString()}원</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {product.productUrl ? (
                           <a 

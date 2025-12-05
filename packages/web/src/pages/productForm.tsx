@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { productService } from '@/services'
+import { toast } from 'sonner'
 
 export const ProductFormPage: FC = () => {
   const { id } = useParams()
@@ -56,6 +57,7 @@ export const ProductFormPage: FC = () => {
     mutationFn: (newProduct: any) => productService.create(newProduct),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      toast.success('제품이 성공적으로 등록되었습니다.')
       navigate(`/products/${data.id}`)
     },
   })
@@ -122,7 +124,7 @@ export const ProductFormPage: FC = () => {
   const isPending = createProductMutation.isPending || updateProductMutation.isPending
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="mx-auto space-y-6 max-w-2xl">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{isEditMode ? '제품 수정' : '제품 추가'}</h1>
         <div className="flex gap-2">

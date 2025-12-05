@@ -63,4 +63,17 @@ export class CreateOrderItemDto {
   @Min(0)
   @Type(() => Number)
   unitCostKrw?: number;
+
+  @ApiProperty({ description: '가격 계산 정보', required: false })
+  @IsOptional()
+  pricing?: {
+    storageFeeKrw?: number;
+    marginRate?: number;
+    roas?: number;
+    actualShippingFeeKrw?: number;
+    marketplaceCommissionRate?: number;
+    sellingPriceKrw?: number;
+    adCostKrw?: number;
+    profitKrw?: number;
+  };
 }

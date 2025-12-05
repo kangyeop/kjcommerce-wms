@@ -15,30 +15,26 @@ export class PricingService {
   ) {}
 
   async create(createPricingDto: CreatePricingDto): Promise<Pricing> {
-    const { orderId, orderItemId } = createPricingDto;
+    const { orderId, orderItemId, productId } = createPricingDto;
 
-    // Check if order item exists
-    const orderItem = await this.orderItemRepository.findOne({
-      where: { id: orderItemId, orderId: orderId },
-    });
-
-    if (!orderItem) {
-      throw new NotFoundException(`Order item not found for order ${orderId} and item ${orderItemId}`);
+    // Validate that at least one reference is provided
+    if (!orderId && !orderItemId && !productId) {
+      throw new NotFoundException('At least one of orderId, orderItemId, or productId must be provided');
     }
 
-    // Check if pricing already exists for this order item
-    let pricing = await this.pricingRepository.findOne({
-      where: { orderId, orderItemId },
-    });
+    // If orderItemId is provided, verify it exists
+    if (orderItemId) {
+      const orderItem = await this.orderItemRepository.findOne({
+        where: { id: orderItemId },
+      });
 
-    if (pricing) {
-      // Update existing pricing
-      Object.assign(pricing, createPricingDto);
-    } else {
-      // Create new pricing
-      pricing = this.pricingRepository.create(createPricingDto);
+      if (!orderItem) {
+        throw new NotFoundException(`Order item with ID ${orderItemId} not found`);
+      }
     }
 
+    // Create new pricing
+    const pricing = this.pricingRepository.create(createPricingDto);
     return this.pricingRepository.save(pricing);
   }
 
@@ -65,5 +61,55 @@ export class PricingService {
   async remove(id: number): Promise<void> {
     const pricing = await this.findOne(id);
     await this.pricingRepository.remove(pricing);
+  }
+
+  async findAll(): Promise<Pricing[]> {
+    return this.pricingRepository.find({
+      relations: ['product', 'order', 'orderItem'],
+    });
+  }
+
+  async findByProduct(productId: number): Promise<Pricing[]> {
+    return this.pricingRepository.find({
+      where: { productId },
+      relations: ['product'],
+    });
+  }
+
+  async update(id: number, updatePricingDto: Partial<CreatePricingDto>): Promise<Pricing> {
+    const pricing = await this.findOne(id);
+    Object.assign(pricing, updatePricingDto);
+    return this.pricingRepository.save(pricing);
+  }
+
+  // Helper method to calculate pricing values
+  calculatePricing(params: {
+    unitCost: number;
+    marginRate: number;
+    roas: number;
+    actualShippingFeeKrw: number;
+    marketplaceCommissionRate: number;
+  }): { sellingPriceKrw: number; adCostKrw: number; profitKrw: number } {
+    const { unitCost, marginRate, roas, actualShippingFeeKrw, marketplaceCommissionRate } = params;
+
+    const roasVal = roas || 0;
+    const adCostRate = roasVal > 0 ? 100 / roasVal : 0;
+
+    const denominator = 1 - marginRate / 100 - marketplaceCommissionRate / 100 - adCostRate;
+
+    let sellingPriceKrw = 0;
+    if (denominator > 0) {
+      sellingPriceKrw = (unitCost + actualShippingFeeKrw) / denominator;
+    }
+
+    const adCostKrw = sellingPriceKrw * adCostRate;
+    const commission = sellingPriceKrw * (marketplaceCommissionRate / 100);
+    const profitKrw = sellingPriceKrw - unitCost - actualShippingFeeKrw - commission - adCostKrw;
+
+    return {
+      sellingPriceKrw: Math.round(sellingPriceKrw),
+      adCostKrw: Math.round(adCostKrw),
+      profitKrw: Math.round(profitKrw),
+    };
   }
 }

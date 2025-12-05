@@ -32,7 +32,7 @@ export class OrderService {
       })),
     });
 
-    return this.orderRepository.save(order);
+    return await this.orderRepository.save(order);
   }
 
   async findAll(): Promise<Order[]> {

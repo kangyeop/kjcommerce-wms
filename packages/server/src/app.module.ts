@@ -7,9 +7,8 @@ import { ExchangeRateModule } from './modules/exchange-rate.module';
 import { MarketplaceModule } from './modules/marketplace.module';
 import { AdAnalysisModule } from './modules/ad-analysis.module';
 import { WingReporterModule } from './modules/wing-reporter.module';
+import { PricingModule } from './modules/pricing.module';
 import { AppController } from './app.controller';
-import { PricingController } from './controllers/pricing.controller';
-import { PricingService } from './services/pricing.service';
 
 @Module({
   imports: [
@@ -29,6 +28,7 @@ import { PricingService } from './services/pricing.service';
     MarketplaceModule,
     AdAnalysisModule,
     WingReporterModule,
+    PricingModule,
   ],
   controllers: [AppController],
   providers: [],

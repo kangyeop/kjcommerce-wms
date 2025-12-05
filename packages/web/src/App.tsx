@@ -11,6 +11,8 @@ import { AdAnalysisPage } from './pages/adAnalysis'
 import { InventoryPage } from './pages/inventory'
 import { QueryProvider } from './context/QueryProvider'
 
+import { Toaster } from 'sonner'
+
 export const App: FC = () => {
   return (
     <QueryProvider>
@@ -30,6 +32,7 @@ export const App: FC = () => {
           </Route>
         </Routes>
       </BrowserRouter>
+      <Toaster />
     </QueryProvider>
   )
 }

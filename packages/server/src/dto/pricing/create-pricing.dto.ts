@@ -3,15 +3,20 @@ import { IsNotEmpty, IsNumber, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePricingDto {
-  @ApiProperty({ description: '발주 ID', example: 1 })
-  @IsNotEmpty()
+  @ApiProperty({ description: '발주 ID', example: 1, required: false })
+  @IsOptional()
   @IsNumber()
-  orderId: number;
+  orderId?: number;
 
-  @ApiProperty({ description: '발주 아이템 ID', example: 1 })
-  @IsNotEmpty()
+  @ApiProperty({ description: '발주 아이템 ID', example: 1, required: false })
+  @IsOptional()
   @IsNumber()
-  orderItemId: number;
+  orderItemId?: number;
+
+  @ApiProperty({ description: '제품 ID', example: 1, required: false })
+  @IsOptional()
+  @IsNumber()
+  productId?: number;
 
   @ApiProperty({ description: '보관료 (원화)', example: 10000, required: false, default: 0 })
   @IsOptional()

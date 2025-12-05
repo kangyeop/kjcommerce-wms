@@ -2,17 +2,22 @@ import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../common/entities/base.entity';
 import { Order } from './order.entity';
 import { OrderItem } from './order-item.entity';
+import { Product } from './product.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
 @Entity({ name: 'pricings' })
 export class Pricing extends BaseEntity {
-  @ApiProperty({ description: '발주 ID' })
-  @Column({ name: 'order_id' })
-  orderId: number;
+  @ApiProperty({ description: '발주 ID', required: false })
+  @Column({ name: 'order_id', nullable: true })
+  orderId?: number;
 
-  @ApiProperty({ description: '발주 아이템 ID' })
-  @Column({ name: 'order_item_id' })
-  orderItemId: number;
+  @ApiProperty({ description: '발주 아이템 ID', required: false })
+  @Column({ name: 'order_item_id', nullable: true })
+  orderItemId?: number;
+
+  @ApiProperty({ description: '제품 ID', required: false })
+  @Column({ name: 'product_id', nullable: true })
+  productId?: number;
 
   @ApiProperty({ description: '보관료 (원화)', example: 10000 })
   @Column({ name: 'storage_fee_krw', type: 'float', default: 0 })
@@ -54,4 +59,8 @@ export class Pricing extends BaseEntity {
   @ManyToOne(() => OrderItem)
   @JoinColumn({ name: 'order_item_id' })
   orderItem: OrderItem;
+
+  @ManyToOne(() => Product)
+  @JoinColumn({ name: 'product_id' })
+  product: Product;
 }
