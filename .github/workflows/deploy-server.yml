@@ -28,7 +28,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile && pnpm rebuild better-sqlite3
+        run: pnpm install --frozen-lockfile
 
       - name: Build server package
         run: pnpm build:server

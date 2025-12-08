@@ -17,8 +17,6 @@ module.exports = {
         NODE_ENV: 'production',
         DB_SYNCHRONIZE: 'true', // 수동 배포 시에도 자동 동기화 활성화 (사용자 요청)
       },
-      error_file: 'logs/server-error.log',
-      out_file: 'logs/server-out.log',
       time: true,
       merge_logs: true,
     },
