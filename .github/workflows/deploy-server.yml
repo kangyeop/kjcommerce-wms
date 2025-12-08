@@ -58,7 +58,7 @@ jobs:
           target: ${{ secrets.SERVER_DEPLOY_PATH }}
           overwrite: true
 
-      - name: Deploy additional files (ecosystem.config.js, package.json)
+      - name: Deploy additional files
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}

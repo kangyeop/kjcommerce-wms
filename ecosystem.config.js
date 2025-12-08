@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'kjcommerce-server',
-      cwd: './packages/server',
-      script: 'dist/main.js',
+      cwd: '.',
+      script: 'main.js',
       instances: 1, // CPU 코어 수에 맞춰 조절 (0: 모든 코어 사용)
       exec_mode: 'cluster', // 'cluster' or 'fork'
       autorestart: true,
@@ -17,8 +17,8 @@ module.exports = {
         NODE_ENV: 'production',
         DB_SYNCHRONIZE: 'true', // 수동 배포 시에도 자동 동기화 활성화 (사용자 요청)
       },
-      error_file: '../../logs/server-error.log',
-      out_file: '../../logs/server-out.log',
+      error_file: 'logs/server-error.log',
+      out_file: 'logs/server-out.log',
       time: true,
       merge_logs: true,
     },
