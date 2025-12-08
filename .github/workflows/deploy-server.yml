@@ -19,12 +19,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 10.11.0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22.15'
           cache: 'pnpm'
       
       - name: Install dependencies
@@ -54,7 +54,7 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "ecosystem.config.js,package.json"
+          source: "ecosystem.config.js,packages/server/package.json"
           target: ${{ secrets.SERVER_DEPLOY_PATH }}
           overwrite: true
       
