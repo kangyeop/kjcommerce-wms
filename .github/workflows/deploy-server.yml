@@ -3,10 +3,10 @@ name: Deploy Server (Backend)
 on:
   push:
     branches:
-      - main # main 브랜치에 push될 때 실행
+      - main
     paths:
-      - 'packages/server/**' # server 패키지 변경 시에만 실행
-  workflow_dispatch: # 수동 실행 가능
+      - 'packages/server/**'
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -35,40 +35,36 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Deploy dist to server via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          source: 'packages/server/dist/*'
-          target: ${{ secrets.SERVER_DEPLOY_PATH }}
-          strip_components: 3 # packages/server/dist 경로 제거
-          rm: true # 기존 파일 삭제 후 업로드
+      - name: Prepare deployment artifact
+        run: |
+          pnpm --filter server --prod deploy --legacy deploy-dist
+          cp -r packages/server/dist/* deploy-dist/
+          cp ecosystem.config.js deploy-dist/
 
-      - name: Deploy additional files (ecosystem.config.js, package.json)
-        uses: appleboy/scp-action@v0.1.7
+      - name: Backup database
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: 'ecosystem.config.js'
-          target: ${{ secrets.SERVER_DEPLOY_PATH }}
-          overwrite: true
+          script: |
+            DEPLOY_PATH="${{ secrets.SERVER_DEPLOY_PATH }}"
+            if [ -f "$DEPLOY_PATH/database.sqlite" ]; then
+              cp "$DEPLOY_PATH/database.sqlite" "$DEPLOY_PATH/../database.sqlite.bak"
+            fi
 
-      - name: Deploy additional files
+      - name: Deploy artifact to server via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: 'packages/server/package.json'
+          source: 'deploy-dist/*'
           target: ${{ secrets.SERVER_DEPLOY_PATH }}
-          overwrite: true
-          strip_components: 2
+          strip_components: 1
+          rm: true
 
       - name: Setup database and restart server
         uses: appleboy/ssh-action@v1.0.3
@@ -80,20 +76,14 @@ jobs:
           script: |
             cd ${{ secrets.SERVER_DEPLOY_PATH }}
 
-            # 데이터베이스 파일이 없으면 빈 파일 생성 (첫 배포 시)
-            # 이미 있으면 기존 데이터 보존
-            if [ ! -f database.sqlite ]; then
-              echo "Creating new database.sqlite file..."
-              touch database.sqlite
-            else
-              echo "database.sqlite already exists, preserving existing data"
+            if [ -f "../database.sqlite.bak" ]; then
+              mv "../database.sqlite.bak" "database.sqlite"
             fi
 
-            # node_modules 설치 (production 모드)
-            pnpm install --frozen-lockfile
+            if [ ! -f database.sqlite ]; then
+              touch database.sqlite
+            fi
 
-            # PM2로 서버 재시작
+            pnpm rebuild better-sqlite3
+
             pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
-
-            # 또는 systemd 사용 시:
-            # sudo systemctl restart kjcommerce-wms
