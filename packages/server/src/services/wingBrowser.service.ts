@@ -1,3 +1,4 @@
+import { Injectable, Logger } from '@nestjs/common';
 import { chromium, Page } from 'playwright-core';
 import { 
   WingCredentials, 
@@ -6,26 +7,24 @@ import {
   ProductPerformance,
   KeywordPerformance,
   WingReport
-} from './types';
+} from '../types/wingReporter.types';
 
-// 브라우저 설정 - 로컬에서는 환경변수, Lambda에서는 /opt/chrome/chrome
-const EXECUTABLE_PATH = process.env.CHROME_PATH;
-
-export class WingBrowser {
-  private credentials: WingCredentials;
+@Injectable()
+export class WingBrowserService {
+  private readonly logger = new Logger(WingBrowserService.name);
   
-  constructor(credentials: WingCredentials) {
-    this.credentials = credentials;
-  }
-
   /**
    * 메인 메서드: 3단계 데이터 수집 (Campaign → Product → Keyword)
    */
-  async scrapeReportData(reportRequest: ReportRequest): Promise<WingReport> {
-    console.log('Starting 3-level data collection from Wing Ad Center');
+  async scrapeReportData(
+    credentials: WingCredentials,
+    reportRequest: ReportRequest
+  ): Promise<WingReport> {
+    this.logger.log('Starting 3-level data collection from Wing Ad Center');
     
+    const executablePath = process.env.CHROME_PATH;
     const browser = await chromium.launch({
-      executablePath: EXECUTABLE_PATH,
+      executablePath,
       headless: true,
     });
     
@@ -38,10 +37,10 @@ export class WingBrowser {
       const page = await context.newPage();
       
       // 1. 로그인
-      await this.login(page);
+      await this.login(page, credentials);
       
       // 2. 캠페인 성과 페이지로 이동
-      console.log('Navigating to campaign performance page');
+      this.logger.log('Navigating to campaign performance page');
       await page.goto('https://advertising.coupang.com/marketing/dashboard/pa/campaign', { 
         waitUntil: 'networkidle' 
       });
@@ -51,17 +50,17 @@ export class WingBrowser {
       await this.setDateRange(page, reportRequest.startDate, reportRequest.endDate);
       
       // 4. 캠페인 데이터 수집
-      console.log('Collecting campaign-level data...');
+      this.logger.log('Collecting campaign-level data...');
       const campaigns = await this.extractCampaignData(page);
       
       // 5. 각 캠페인별로 상품 및 키워드 데이터 수집
       for (const campaign of campaigns) {
-        console.log(`Collecting product data for campaign: ${campaign.campaignName}`);
+        this.logger.log(`Collecting product data for campaign: ${campaign.campaignName}`);
         campaign.products = await this.extractProductData(page, campaign.campaignName);
         
         // 6. 각 상품별로 키워드 데이터 수집
         for (const product of campaign.products) {
-          console.log(`  Collecting keyword data for product: ${product.productName}`);
+          this.logger.log(`  Collecting keyword data for product: ${product.productName}`);
           product.keywords = await this.extractKeywordData(page, product.productName);
         }
       }
@@ -72,10 +71,10 @@ export class WingBrowser {
         sum + c.products.reduce((pSum, p) => pSum + p.keywords.length, 0), 0
       );
       
-      console.log(`\nData collection complete:`);
-      console.log(`  Campaigns: ${campaigns.length}`);
-      console.log(`  Products: ${totalProducts}`);
-      console.log(`  Keywords: ${totalKeywords}`);
+      this.logger.log(`Data collection complete:`);
+      this.logger.log(`  Campaigns: ${campaigns.length}`);
+      this.logger.log(`  Products: ${totalProducts}`);
+      this.logger.log(`  Keywords: ${totalKeywords}`);
       
       return {
         campaigns,
@@ -96,8 +95,8 @@ export class WingBrowser {
   /**
    * 로그인 처리
    */
-  private async login(page: Page): Promise<void> {
-    console.log('Logging in to Wing Ad Center');
+  private async login(page: Page, credentials: WingCredentials): Promise<void> {
+    this.logger.log('Logging in to Wing Ad Center');
     await page.goto('https://advertising.coupang.com', { 
       waitUntil: 'networkidle',
       timeout: 60000 
@@ -105,35 +104,35 @@ export class WingBrowser {
     await page.waitForTimeout(3000);
     
     // 판매자 로그인 선택
-    console.log('Clicking seller login button');
+    this.logger.log('Clicking seller login button');
     await page.click('text=판매자 또는 광고대행사로 로그인', { timeout: 60000 });
     await page.waitForTimeout(2000);
     
     // 쿠팡 마켓플레이스 판매자 로그인
-    console.log('Clicking marketplace login button');
+    this.logger.log('Clicking marketplace login button');
     await page.click('text=쿠팡 마켓플레이스', { timeout: 60000 });
     await page.waitForTimeout(2000);
     
     // 로그인 폼 입력
-    console.log('Filling in credentials');
-    await page.fill('input#username', this.credentials.username);
+    this.logger.log('Filling in credentials');
+    await page.fill('input#username', credentials.username);
     await page.waitForTimeout(500);
-    await page.fill('input#password', this.credentials.password);
+    await page.fill('input#password', credentials.password);
     await page.waitForTimeout(500);
     await page.click('input#kc-login');
     
     // 로그인 완료 대기
-    console.log('Waiting for login to complete');
+    this.logger.log('Waiting for login to complete');
     await page.waitForLoadState('networkidle', { timeout: 60000 });
     await page.waitForTimeout(3000);
-    console.log('Login successful');
+    this.logger.log('Login successful');
   }
 
   /**
    * 날짜 범위 설정
    */
   private async setDateRange(page: Page, startDate: string, endDate: string): Promise<void> {
-    console.log(`Setting date range: ${startDate} ~ ${endDate}`);
+    this.logger.log(`Setting date range: ${startDate} ~ ${endDate}`);
     
     try {
       // Ant Design 날짜 선택기 사용
@@ -156,7 +155,7 @@ export class WingBrowser {
         }
       }
     } catch (error) {
-      console.warn('Date range setting failed, using default range:', error);
+      this.logger.warn('Date range setting failed, using default range:', error);
     }
   }
 
@@ -167,7 +166,6 @@ export class WingBrowser {
     const campaigns: CampaignPerformance[] = [];
     
     // AG Grid 데이터 추출
-    // AG Grid는 가상화되어 있어서 JavaScript로 데이터를 가져와야 함
     const campaignData = await page.evaluate(() => {
       const results: any[] = [];
       
@@ -287,7 +285,7 @@ export class WingBrowser {
       await page.waitForTimeout(2000);
       
     } catch (error) {
-      console.error(`Failed to extract product data for ${campaignName}:`, error);
+      this.logger.error(`Failed to extract product data for ${campaignName}:`, error);
     }
     
     return products;
@@ -359,7 +357,7 @@ export class WingBrowser {
         }
       }
     } catch (error) {
-      console.error(`Failed to extract keyword data for ${productName}:`, error);
+      this.logger.error(`Failed to extract keyword data for ${productName}:`, error);
     }
     
     return keywords;

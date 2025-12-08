@@ -118,14 +118,3 @@ export interface WingReport {
     totalKeywords: number;
   };
 }
-
-/**
- * Lambda 응답
- */
-export interface LambdaResponse {
-  statusCode: number;
-  body: string;
-  headers: {
-    [key: string]: string;
-  };
-}

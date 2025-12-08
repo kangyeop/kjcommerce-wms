@@ -1,0 +1,60 @@
+name: Deploy Web (Frontend)
+
+on:
+  push:
+    branches:
+      - main  # main 브랜치에 push될 때 실행
+    paths:
+      - 'packages/web/**'  # web 패키지 변경 시에만 실행
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build web package
+        run: pnpm build
+        env:
+          NODE_ENV: production
+      
+      - name: Deploy to server via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "packages/web/dist/*"
+          target: ${{ secrets.WEB_DEPLOY_PATH }}
+          strip_components: 3  # packages/web/dist 경로 제거
+          rm: true  # 기존 파일 삭제 후 업로드
+      
+      - name: Restart web service (optional)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            # Nginx reload 또는 기타 필요한 명령어
+            # sudo systemctl reload nginx
+            echo "Web deployment completed"
