@@ -1,6 +1,2 @@
 packages:
   - packages/*
-ignoredBuiltDependencies:
-  - '@nestjs/core'
-  - better-sqlite3
-  - esbuild
