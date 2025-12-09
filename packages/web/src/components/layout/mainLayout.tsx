@@ -1,7 +1,11 @@
-import { FC } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { FC, ReactNode } from 'react'
+import { Link } from '@tanstack/react-router'
 
-export const MainLayout: FC = () => {
+interface MainLayoutProps {
+  children: ReactNode
+}
+
+export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-primary text-primary-foreground py-4 shadow-md">
@@ -14,7 +18,7 @@ export const MainLayout: FC = () => {
                 <li><Link to="/products" className="hover:text-white/80 transition-colors">제품 관리</Link></li>
                 <li><Link to="/orders" className="hover:text-white/80 transition-colors">발주 관리</Link></li>
                 <li><Link to="/pricing" className="hover:text-white/80 transition-colors">판매가격 계산</Link></li>
-                <li><Link to="/coupang-wing" className="hover:text-white/80 transition-colors">쿠팡 윙</Link></li>
+                <li><Link to="/ad-analysis" className="hover:text-white/80 transition-colors">광고 분석</Link></li>
               </ul>
             </nav>
           </div>
@@ -22,7 +26,7 @@ export const MainLayout: FC = () => {
       </header>
 
       <main className="flex-grow container mx-auto px-4 py-8">
-        <Outlet />
+        {children}
       </main>
 
       <footer className="bg-primary text-primary-foreground py-4">

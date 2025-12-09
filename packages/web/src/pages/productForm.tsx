@@ -1,6 +1,6 @@
 import { useState, useEffect, FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@tanstack/react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 import { calculateCoupangFee } from '@/lib/coupang-fee';
 
 export const ProductFormPage: FC = () => {
-  const { id } = useParams();
+  const params = useParams({ strict: false });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const id = params.id;
   const isEditMode = !!id;
 
   // 수정 모드일 때 기존 제품 정보 조회
@@ -81,7 +82,7 @@ export const ProductFormPage: FC = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('제품이 성공적으로 등록되었습니다.');
-      navigate(`/products/${data.id}`);
+      navigate({ to: `/products/$id`, params: { id: data.id.toString() } });
     },
   });
 
@@ -91,7 +92,7 @@ export const ProductFormPage: FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['product', id] });
-      navigate(`/products/${id}`);
+      navigate({ to: `/products/$id`, params: { id: id!.toString() } });
     },
   });
 
@@ -100,7 +101,7 @@ export const ProductFormPage: FC = () => {
     mutationFn: (id: number) => productService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      navigate('/products');
+      navigate({ to: '/products' });
     },
   });
 
@@ -153,7 +154,7 @@ export const ProductFormPage: FC = () => {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => navigate(isEditMode ? `/products/${id}` : '/products')}
+            onClick={() => navigate(isEditMode ? { to: `/products/$id`, params: { id: id!.toString() } } : { to: '/products' })}
           >
             취소
           </Button>
@@ -350,7 +351,7 @@ export const ProductFormPage: FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(isEditMode ? `/products/${id}` : '/products')}
+                onClick={() => navigate(isEditMode ? { to: `/products/$id`, params: { id: id.toString() } } : { to: '/products' })}
               >
                 취소
               </Button>

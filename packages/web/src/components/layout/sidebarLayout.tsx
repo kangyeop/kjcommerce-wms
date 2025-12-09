@@ -1,5 +1,5 @@
-import { FC, useState } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { FC, useState, ReactNode } from 'react'
+import { Link, useLocation } from '@tanstack/react-router'
 import { 
   Home, 
   Package, 
@@ -11,7 +11,11 @@ import {
   X
 } from 'lucide-react'
 
-export const SidebarLayout: FC = () => {
+interface SidebarLayoutProps {
+  children: ReactNode
+}
+
+export const SidebarLayout: FC<SidebarLayoutProps> = ({ children }) => {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -107,7 +111,7 @@ export const SidebarLayout: FC = () => {
 
         {/* Page Content */}
         <main className="flex-1 p-4 lg:p-8 overflow-auto">
-          <Outlet />
+          {children}
         </main>
       </div>
     </div>

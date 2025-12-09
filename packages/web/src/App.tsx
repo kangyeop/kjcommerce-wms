@@ -1,37 +1,25 @@
 import { FC } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { SidebarLayout } from './components/layout/sidebarLayout'
-import { HomePage } from './pages/home'
-import { ProductListPage } from './pages/productList'
-import { ProductFormPage } from './pages/productForm'
-import { OrderListPage } from './pages/orderList'
-import { OrderFormPage } from './pages/orderForm'
-import { PricingCalculatorPage } from './pages/pricingCalculator'
-import { AdAnalysisPage } from './pages/adAnalysis'
-import { InventoryPage } from './pages/inventory'
+import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryProvider } from './context/QueryProvider'
-
 import { Toaster } from 'sonner'
+
+// Import the generated route tree
+import { routeTree } from './routeTree.gen'
+
+// Create a new router instance
+const router = createRouter({ routeTree })
+
+// Register the router instance for type safety
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}
 
 export const App: FC = () => {
   return (
     <QueryProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<SidebarLayout />}>
-            <Route index element={<HomePage />} />
-            <Route path="products" element={<ProductListPage />} />
-            <Route path="products/new" element={<ProductFormPage />} />
-            <Route path="products/:id" element={<ProductFormPage />} />
-            <Route path="orders" element={<OrderListPage />} />
-            <Route path="orders/new" element={<OrderFormPage />} />
-            <Route path="orders/:id" element={<OrderFormPage />} />
-            <Route path="pricing" element={<PricingCalculatorPage />} />
-            <Route path="ad-analysis" element={<AdAnalysisPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <RouterProvider router={router} />
       <Toaster />
     </QueryProvider>
   )

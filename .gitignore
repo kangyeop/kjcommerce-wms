@@ -8,6 +8,9 @@ dist
 build
 .next
 
+# TanStack Router generated files
+routeTree.gen.ts
+
 # Environment variables
 .env
 .env.local

@@ -1,6 +1,6 @@
 import { FC } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '@tanstack/react-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { productService } from '@/services'
@@ -27,7 +27,7 @@ export const ProductListPage: FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">제품 관리</h1>
-        <Button onClick={() => navigate('/products/new')}>
+        <Button onClick={() => navigate({ to: '/products/new' })}>
           제품 추가
         </Button>
       </div>
@@ -59,7 +59,7 @@ export const ProductListPage: FC = () => {
                     <tr 
                       key={product.id} 
                       className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/products/${product.id}`)}
+                      onClick={() => navigate({ to: `/products/$id`, params: { id: product.id.toString() } })}
                     >
                       <td className="px-4 py-3 font-medium">{product.name}</td>
                       <td className="px-4 py-3 text-right">{product.pricePerUnitYuan.toLocaleString()} 위안</td>

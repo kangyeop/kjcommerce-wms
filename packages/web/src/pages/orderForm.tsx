@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, FC } from 'react'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from '@tanstack/react-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,9 +13,10 @@ import { OrderProductTab } from '@/components/orders/OrderProductTab'
 import { OrderSummary } from '@/components/orders/OrderSummary'
 
 export const OrderFormPage: FC = () => {
-  const { id } = useParams()
+  const params = useParams({ strict: false })
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const id = params.id
   const isEditMode = !!id
 
   // 제품 목록 조회
@@ -127,7 +128,7 @@ export const OrderFormPage: FC = () => {
     mutationFn: (newOrder: CreateOrderDto) => orderService.create(newOrder),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
-      navigate('/orders')
+      navigate({ to: '/orders' })
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.message || '발주 등록 중 오류가 발생했습니다.'
@@ -144,7 +145,7 @@ export const OrderFormPage: FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['order', id] })
-      navigate('/orders')
+      navigate({ to: '/orders' })
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.message || '발주 수정 중 오류가 발생했습니다.'
@@ -157,7 +158,7 @@ export const OrderFormPage: FC = () => {
     mutationFn: () => orderService.delete(Number(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
-      navigate('/orders')
+      navigate({ to: '/orders' })
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.message || '발주 삭제 중 오류가 발생했습니다.'
@@ -211,7 +212,7 @@ export const OrderFormPage: FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{isEditMode ? '발주 수정' : '새 발주 등록'}</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/orders')}>
+          <Button variant="outline" onClick={() => navigate({ to: '/orders' })}>
             목록으로 돌아가기
           </Button>
           {isEditMode && (
@@ -319,7 +320,7 @@ export const OrderFormPage: FC = () => {
             />
 
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => navigate('/orders')}>
+              <Button type="button" variant="outline" onClick={() => navigate({ to: '/orders' })}>
                 취소
               </Button>
               <Button type="submit" disabled={isPending}>

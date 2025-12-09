@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { orderService } from '@/services';
@@ -80,7 +80,7 @@ export const OrderListPage: FC = () => {
                       <tr
                         key={order.id}
                         className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/orders/${order.id}`)}
+                        onClick={() => navigate({ to: `/orders/$id`, params: { id: order.id.toString() } })}
                       >
                         <td className="p-3">{order.id}</td>
                         <td className="p-3">
