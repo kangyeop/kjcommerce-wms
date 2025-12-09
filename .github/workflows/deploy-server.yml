@@ -41,6 +41,12 @@ jobs:
           cp -r packages/server/dist/* deploy-dist/
           cp ecosystem.config.js deploy-dist/
 
+      - name: Create .env file
+        run: |
+          cat > deploy-dist/.env << EOF
+          ${{ secrets.ENV_FILE }}
+          EOF
+
       - name: Backup database
         uses: appleboy/ssh-action@v1.0.3
         with:
