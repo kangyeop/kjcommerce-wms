@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, FC } from 'react'
+import { useState, useEffect, useCallback, FC } from 'react'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -7,18 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { orderService, productService } from '@/services'
-import { CreateOrderDto, Product, OrderItem } from '@/types'
-import {
-  calculateServiceFee,
-  calculatePackagingFee,
-  calculateInspectionFee,
-  calculateInternationalShipping,
-  calculateTaxableAmount,
-  calculateDuty,
-  calculateVAT,
-  calculateItemTotalCostKrw,
-  calculateUnitCost
-} from '@/lib/order-calculations'
+import { CreateOrderDto, Product } from '@/types'
+import { useOrderCalculations, OrderItemInput, OrderGlobalInput } from '@/hooks/useOrderCalculations'
+import { OrderProductTab } from '@/components/orders/OrderProductTab'
+import { OrderSummary } from '@/components/orders/OrderSummary'
 
 export const OrderFormPage: FC = () => {
   const { id } = useParams()
@@ -42,242 +34,93 @@ export const OrderFormPage: FC = () => {
   // 현재 활성 탭 (상품 인덱스)
   const [activeTabIndex, setActiveTabIndex] = useState(0)
 
-  // 발주 아이템들 (여러 상품)
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([
+  // 발주 아이템들 (입력값만 관리)
+  const [items, setItems] = useState<OrderItemInput[]>([
     {
       productId: 0,
       quantity: 0,
-      originalCostYuan: 0,
-      serviceFeeYuan: 0,
       inspectionFeeYuan: 0,
-      packagingFeeYuan: 0,
       domesticShippingFeeYuan: 0,
-      itemTotalCostKrw: 0,
-      unitCostKrw: 0,
     }
   ])
 
-  // 전체 발주 공통 데이터
-  const [formData, setFormData] = useState({
+  // 전체 발주 공통 데이터 (입력값만 관리)
+  const [formData, setFormData] = useState<OrderGlobalInput & { orderDate: string }>({
     exchangeRate: 180,
     internationalShippingFeeKrw: 0,
     miscellaneousFeeKrw: 0,
     customsFeeKrw: 22000,
-    taxableAmountKrw: 0,
-    dutyKrw: 0,
-    vatKrw: 0,
-    totalCostKrw: 0,
     orderDate: new Date().toISOString().split('T')[0]
   })
+
+  // 계산 로직 Hook 사용
+  const { enrichedItems, totals } = useOrderCalculations(items, products, formData)
 
   // 기존 데이터 로드
   useEffect(() => {
     if (existingOrder) {
-      const items = existingOrder.items && existingOrder.items.length > 0
-        ? existingOrder.items
+      const loadedItems = existingOrder.items && existingOrder.items.length > 0
+        ? existingOrder.items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            inspectionFeeYuan: item.inspectionFeeYuan,
+            domesticShippingFeeYuan: item.domesticShippingFeeYuan || 0
+          }))
         : [{
             productId: 0,
             quantity: 0,
-            originalCostYuan: 0,
-            serviceFeeYuan: 0,
             inspectionFeeYuan: 0,
-            packagingFeeYuan: 0,
             domesticShippingFeeYuan: 0,
-            itemTotalCostKrw: 0,
-            unitCostKrw: 0,
           }]
       
-      setOrderItems(items)
+      setItems(loadedItems)
       setFormData({
         exchangeRate: existingOrder.exchangeRate,
         internationalShippingFeeKrw: existingOrder.internationalShippingFeeKrw || 0,
         miscellaneousFeeKrw: existingOrder.miscellaneousFeeKrw || 0,
         customsFeeKrw: existingOrder.customsFeeKrw,
-        taxableAmountKrw: existingOrder.taxableAmountKrw,
-        dutyKrw: existingOrder.dutyKrw,
-        vatKrw: existingOrder.vatKrw,
-        totalCostKrw: existingOrder.totalCostKrw,
         orderDate: existingOrder.orderDate
       })
     }
   }, [existingOrder])
 
+  // 해외배송비 자동 계산 업데이트 (계산된 값이 변경될 때만 업데이트하여 수동 수정 허용)
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, internationalShippingFeeKrw: totals.calculatedInternationalShippingFee }))
+  }, [totals.calculatedInternationalShippingFee])
+
   // 탭 추가 (새 상품 추가)
   const addProductTab = useCallback(() => {
-    setOrderItems(prev => [...prev, {
+    setItems(prev => [...prev, {
       productId: 0,
       quantity: 0,
-      originalCostYuan: 0,
-      serviceFeeYuan: 0,
       inspectionFeeYuan: 0,
-      packagingFeeYuan: 0,
       domesticShippingFeeYuan: 0,
-      itemTotalCostKrw: 0,
-      unitCostKrw: 0,
     }])
-    setActiveTabIndex(orderItems.length)
-  }, [orderItems.length])
+    setActiveTabIndex(items.length)
+  }, [items.length])
 
   // 탭 삭제 (상품 제거)
   const removeProductTab = useCallback((index: number) => {
-    if (orderItems.length === 1) {
+    if (items.length === 1) {
       toast.error('최소 1개의 상품은 있어야 합니다.')
       return
     }
-    const newItems = orderItems.filter((_, i) => i !== index)
-    setOrderItems(newItems)
+    const newItems = items.filter((_, i) => i !== index)
+    setItems(newItems)
     if (activeTabIndex >= newItems.length) {
       setActiveTabIndex(newItems.length - 1)
     }
-  }, [orderItems, activeTabIndex])
+  }, [items, activeTabIndex])
 
-  // 현재 활성 아이템 업데이트
-  const updateCurrentItem = useCallback((updates: Partial<OrderItem>) => {
-    setOrderItems(prev => {
+  // 아이템 업데이트
+  const updateItem = useCallback((index: number, updates: Partial<OrderItemInput>) => {
+    setItems(prev => {
       const newItems = [...prev]
-      newItems[activeTabIndex] = { ...newItems[activeTabIndex], ...updates }
+      newItems[index] = { ...newItems[index], ...updates }
       return newItems
     })
-  }, [activeTabIndex])
-
-  const currentItem = orderItems[activeTabIndex]
-
-  // 제품 선택 시 원가, 구매대행 수수료, 포장비 자동 계산
-  useEffect(() => {
-    if (currentItem.productId && currentItem.quantity) {
-      const selectedProduct = products.find(p => p.id === currentItem.productId)
-      if (selectedProduct) {
-        const originalCost = selectedProduct.pricePerUnitYuan * currentItem.quantity
-        const serviceFee = calculateServiceFee(originalCost)
-        const inspectionFee = calculateInspectionFee(originalCost)
-        const packagingFee = calculatePackagingFee(currentItem.quantity, selectedProduct.unitsPerPackage || 1)
-        
-        // 값이 변경되었을 때만 업데이트하여 무한 루프 방지 및 성능 최적화
-        if (
-          currentItem.originalCostYuan !== originalCost ||
-          currentItem.serviceFeeYuan !== serviceFee ||
-          currentItem.inspectionFeeYuan !== inspectionFee ||
-          currentItem.packagingFeeYuan !== packagingFee
-        ) {
-          updateCurrentItem({
-            originalCostYuan: originalCost,
-            serviceFeeYuan: serviceFee,
-            inspectionFeeYuan: inspectionFee,
-            packagingFeeYuan: packagingFee,
-          })
-        }
-      }
-    }
-  }, [currentItem.productId, currentItem.quantity, products, currentItem.originalCostYuan, currentItem.serviceFeeYuan, currentItem.inspectionFeeYuan, currentItem.packagingFeeYuan])
-
-  // 각 아이템의 총 원가 및 개당 원가 계산
-  useEffect(() => {
-    const newItems = orderItems.map(item => {
-      const itemTotal = calculateItemTotalCostKrw(
-        item.originalCostYuan,
-        item.serviceFeeYuan,
-        item.inspectionFeeYuan,
-        item.packagingFeeYuan,
-        item.domesticShippingFeeYuan || 0,
-        formData.exchangeRate
-      )
-      
-      const unitCost = calculateUnitCost(itemTotal, item.quantity)
-      
-      return { ...item, itemTotalCostKrw: itemTotal, unitCostKrw: unitCost }
-    })
-    
-    // 실제로 값이 변경되었을 때만 업데이트
-    const hasChanged = newItems.some((newItem, index) => 
-      newItem.itemTotalCostKrw !== orderItems[index].itemTotalCostKrw ||
-      newItem.unitCostKrw !== orderItems[index].unitCostKrw
-    )
-    
-    if (hasChanged) {
-      setOrderItems(newItems)
-    }
-  }, [
-    orderItems.map(i => i.originalCostYuan).join(','),
-    orderItems.map(i => i.serviceFeeYuan).join(','),
-    orderItems.map(i => i.inspectionFeeYuan).join(','),
-    orderItems.map(i => i.packagingFeeYuan).join(','),
-    orderItems.map(i => i.domesticShippingFeeYuan).join(','),
-    orderItems.map(i => i.quantity).join(','),
-    formData.exchangeRate
-  ])
-
-  // 총 무게 계산 (useMemo로 최적화)
-  const totalWeightKg = useMemo(() => {
-    const totalWeightG = orderItems.reduce((sum, item) => {
-      const product = products.find(p => p.id === item.productId)
-      if (product) {
-        return sum + (product.weightPerUnit * item.quantity)
-      }
-      return sum
-    }, 0)
-    return totalWeightG / 1000
-  }, [orderItems, products])
-
-  // 해외배송비 자동 계산 (useMemo로 계산, useEffect로 상태 업데이트)
-  const calculatedInternationalShipping = useMemo(() => {
-    return calculateInternationalShipping(totalWeightKg)
-  }, [totalWeightKg])
-
-  useEffect(() => {
-    if (calculatedInternationalShipping !== formData.internationalShippingFeeKrw) {
-      setFormData(prev => ({ ...prev, internationalShippingFeeKrw: calculatedInternationalShipping }))
-    }
-  }, [calculatedInternationalShipping, formData.internationalShippingFeeKrw])
-
-  // 과세가격, 관세, 부가세 자동 계산 (useMemo로 최적화)
-  const taxCalculations = useMemo(() => {
-    const totalProductPriceYuan = orderItems.reduce((sum, item) => sum + item.originalCostYuan, 0)
-    const productPriceKrw = totalProductPriceYuan * formData.exchangeRate
-    const taxableAmount = calculateTaxableAmount(productPriceKrw)
-    const duty = calculateDuty(taxableAmount)
-    const vat = calculateVAT(taxableAmount, duty)
-    
-    return { taxableAmount, duty, vat }
-  }, [orderItems, formData.exchangeRate])
-
-  useEffect(() => {
-    if (taxCalculations.taxableAmount !== formData.taxableAmountKrw || 
-        taxCalculations.duty !== formData.dutyKrw || 
-        taxCalculations.vat !== formData.vatKrw) {
-      setFormData(prev => ({
-        ...prev,
-        taxableAmountKrw: taxCalculations.taxableAmount,
-        dutyKrw: taxCalculations.duty,
-        vatKrw: taxCalculations.vat
-      }))
-    }
-  }, [taxCalculations, formData.taxableAmountKrw, formData.dutyKrw, formData.vatKrw])
-
-  // 총 원가 자동 계산 (useMemo로 최적화)
-  const calculatedTotalCost = useMemo(() => {
-    const itemsTotal = orderItems.reduce((sum, item) => sum + item.itemTotalCostKrw, 0)
-    const totalCost = itemsTotal +
-                      (formData.internationalShippingFeeKrw || 0) +
-                      (formData.miscellaneousFeeKrw || 0) +
-                      formData.customsFeeKrw +
-                      formData.dutyKrw +
-                      formData.vatKrw
-    
-    return Math.round(totalCost)
-  }, [
-    orderItems,
-    formData.internationalShippingFeeKrw,
-    formData.miscellaneousFeeKrw,
-    formData.customsFeeKrw,
-    formData.dutyKrw,
-    formData.vatKrw
-  ])
-
-  useEffect(() => {
-    if (calculatedTotalCost !== formData.totalCostKrw) {
-      setFormData(prev => ({ ...prev, totalCostKrw: calculatedTotalCost }))
-    }
-  }, [calculatedTotalCost, formData.totalCostKrw])
+  }, [])
 
   // 발주 생성 mutation
   const createOrderMutation = useMutation({
@@ -323,14 +166,14 @@ export const OrderFormPage: FC = () => {
     e.preventDefault()
     
     const orderDto: CreateOrderDto = {
-      items: orderItems.map(item => ({
+      items: enrichedItems.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
         originalCostYuan: item.originalCostYuan,
         serviceFeeYuan: item.serviceFeeYuan,
         inspectionFeeYuan: item.inspectionFeeYuan,
         packagingFeeYuan: item.packagingFeeYuan,
-        domesticShippingFeeYuan: item.domesticShippingFeeYuan || 0,
+        domesticShippingFeeYuan: item.domesticShippingFeeYuan,
         itemTotalCostKrw: item.itemTotalCostKrw,
         unitCostKrw: item.unitCostKrw,
       })),
@@ -338,10 +181,10 @@ export const OrderFormPage: FC = () => {
       internationalShippingFeeKrw: formData.internationalShippingFeeKrw,
       miscellaneousFeeKrw: formData.miscellaneousFeeKrw,
       customsFeeKrw: formData.customsFeeKrw,
-      taxableAmountKrw: formData.taxableAmountKrw,
-      dutyKrw: formData.dutyKrw,
-      vatKrw: formData.vatKrw,
-      totalCostKrw: formData.totalCostKrw,
+      taxableAmountKrw: totals.taxableAmountKrw,
+      dutyKrw: totals.dutyKrw,
+      vatKrw: totals.vatKrw,
+      totalCostKrw: totals.totalCostKrw,
       orderDate: formData.orderDate,
     }
     
@@ -397,7 +240,7 @@ export const OrderFormPage: FC = () => {
               
               {/* 탭 헤더 */}
               <div className="flex flex-wrap gap-2 mb-4">
-                {orderItems.map((item, index) => {
+                {items.map((item, index) => {
                   const product = products.find(p => p.id === item.productId)
                   return (
                     <div
@@ -410,7 +253,7 @@ export const OrderFormPage: FC = () => {
                       onClick={() => setActiveTabIndex(index)}
                     >
                       <span>{product?.name || `상품 ${index + 1}`}</span>
-                      {orderItems.length > 1 && (
+                      {items.length > 1 && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -427,107 +270,13 @@ export const OrderFormPage: FC = () => {
                 })}
               </div>
 
-              {/* 1차 결제 - 상품별 비용 */}
-              <div className="p-4 space-y-4 bg-white rounded-b-md rounded-tr-md border-2 border-blue-500">
-                <div className="flex gap-2 items-center mb-4">
-                  <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded border border-blue-200">
-                    1차 결제
-                  </span>
-                  <span className="text-sm text-gray-600">상품 매입 및 중국 내 이동 (상품별)</span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor={`product-${activeTabIndex}`}>제품</Label>
-                    <select
-                      id={`product-${activeTabIndex}`}
-                      className="px-3 w-full h-10 rounded-md border border-input"
-                      value={currentItem.productId}
-                      onChange={(e) => updateCurrentItem({ productId: Number(e.target.value) })}
-                      required
-                    >
-                      <option value={0}>제품 선택</option>
-                      {products.map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} - {product.pricePerUnitYuan.toLocaleString()}위안
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor={`quantity-${activeTabIndex}`}>수량</Label>
-                    <Input
-                      id={`quantity-${activeTabIndex}`}
-                      type="number"
-                      min="1"
-                      value={currentItem.quantity || ''}
-                      onChange={(e) => updateCurrentItem({ quantity: Number(e.target.value) })}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>원가 (위안) - 자동계산</Label>
-                    <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
-                      {currentItem.originalCostYuan.toLocaleString()}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>구매대행 수수료 (위안) - 자동계산</Label>
-                    <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
-                      {currentItem.serviceFeeYuan.toLocaleString()}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor={`inspection-${activeTabIndex}`}>검품비 (위안)</Label>
-                    <Input
-                      id={`inspection-${activeTabIndex}`}
-                      type="number"
-                      step="0.01"
-                      value={currentItem.inspectionFeeYuan}
-                      onChange={(e) => updateCurrentItem({ inspectionFeeYuan: Number(e.target.value) })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>포장비 (위안) - 자동계산</Label>
-                    <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
-                      {currentItem.packagingFeeYuan.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor={`domestic-shipping-${activeTabIndex}`}>중국내 배송비 (위안)</Label>
-                    <Input
-                      id={`domestic-shipping-${activeTabIndex}`}
-                      type="number"
-                      step="0.01"
-                      value={currentItem.domesticShippingFeeYuan || ''}
-                      onChange={(e) => updateCurrentItem({ domesticShippingFeeYuan: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 mt-4 bg-blue-50 rounded border">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold">이 상품의 총 원가:</span>
-                      <span className="text-xl font-bold text-blue-600">
-                        {currentItem.itemTotalCostKrw.toLocaleString()}원
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold">개당 원가:</span>
-                      <span className="text-xl font-bold text-green-600">
-                        {currentItem.unitCostKrw.toLocaleString()}원
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* 현재 활성 탭 내용 */}
+              <OrderProductTab 
+                item={enrichedItems[activeTabIndex]}
+                products={products}
+                index={activeTabIndex}
+                onUpdate={(updates) => updateItem(activeTabIndex, updates)}
+              />
             </div>
 
             {/* 기본 정보 */}
@@ -559,85 +308,12 @@ export const OrderFormPage: FC = () => {
               </div>
             </div>
 
-            {/* 2차 결제 - 전체 합산 비용 */}
-            <div className="p-4 rounded-md border bg-green-50/50">
-              <div className="flex gap-2 items-center mb-4">
-                <span className="px-3 py-1 text-sm font-bold text-green-700 bg-green-100 rounded border border-green-200">
-                  2차 결제
-                </span>
-                <span className="text-sm text-gray-600">국제 배송 및 통관 (전체 합산)</span>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="internationalShipping">해외 배송비 (원) - 자동계산/수정가능</Label>
-                  <Input
-                    id="internationalShipping"
-                    type="number"
-                    value={formData.internationalShippingFeeKrw || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, internationalShippingFeeKrw: Number(e.target.value) }))}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    전체 무게 기준 자동 계산
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="miscellaneous">기타 비용 (원)</Label>
-                  <Input
-                    id="miscellaneous"
-                    type="number"
-                    value={formData.miscellaneousFeeKrw || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, miscellaneousFeeKrw: Number(e.target.value) }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>과세가격 (원) - 자동계산</Label>
-                  <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
-                    {formData.taxableAmountKrw.toLocaleString()}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="customs">통관비 (원)</Label>
-                  <Input
-                    id="customs"
-                    type="number"
-                    value={formData.customsFeeKrw}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customsFeeKrw: Number(e.target.value) }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>관세 (원) - 자동계산</Label>
-                  <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
-                    {formData.dutyKrw.toLocaleString()}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>부가세 (원) - 자동계산</Label>
-                  <div className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-muted">
-                    {formData.vatKrw.toLocaleString()}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 총 원가 표시 */}
-            <div className="p-4 bg-blue-50 rounded-md border-2 border-blue-600">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">전체 발주 총 원가</h3>
-                <div className="text-3xl font-bold text-blue-600">
-                  {formData.totalCostKrw.toLocaleString()}원
-                </div>
-              </div>
-              <div className="mt-2 text-sm text-gray-600">
-                = 모든 상품 원가 ({orderItems.reduce((sum, item) => sum + item.itemTotalCostKrw, 0).toLocaleString()}원) 
-                + 2차 결제 ({(formData.internationalShippingFeeKrw + formData.miscellaneousFeeKrw + formData.customsFeeKrw + formData.dutyKrw + formData.vatKrw).toLocaleString()}원)
-              </div>
-            </div>
+            {/* 주문 요약 및 합계 */}
+            <OrderSummary 
+              formData={formData}
+              totals={totals}
+              onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
+            />
 
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => navigate('/orders')}>
@@ -653,4 +329,3 @@ export const OrderFormPage: FC = () => {
     </div>
   )
 }
-
