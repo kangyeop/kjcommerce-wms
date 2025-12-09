@@ -28,7 +28,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile && pnpm rebuild
+        run: pnpm install --frozen-lockfile
 
       - name: Build server package
         run: pnpm build:server
@@ -83,5 +83,7 @@ jobs:
             if [ ! -f database.sqlite ]; then
               touch database.sqlite
             fi
+
+            pnpm rebuild
 
             pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
