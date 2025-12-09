@@ -1,21 +1,23 @@
-import axios from 'axios'
-
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000'
+import apiClient from './api';
 
 export const adAnalysisService = {
   async analyzeReport(file: File) {
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    const response = await axios.post(
-      `${API_BASE_URL}/api/ad-analysis/analyze`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    )
-    return response.data
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiClient.post(`/ad-analysis/analyze`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
   },
-}
+
+  async analyzeWingReport(startDate: string, endDate: string) {
+    const response = await apiClient.post(`/ad-analysis/analyze-wing`, {
+      startDate,
+      endDate,
+    });
+    return response.data;
+  },
+};

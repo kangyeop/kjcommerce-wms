@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as XLSX from 'xlsx';
 // import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
+import { WingReporterService } from './wing-reporter.service';
 
 export interface AdCampaign {
   campaignName: string;
@@ -30,7 +31,10 @@ export class AdAnalysisService {
   private readonly logger = new Logger(AdAnalysisService.name);
   // private readonly llm: ChatOpenAI;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private wingReporterService: WingReporterService
+  ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
 
     if (apiKey) {
@@ -39,6 +43,38 @@ export class AdAnalysisService {
       //   temperature: 0.3,
       //   openAIApiKey: apiKey,
       // });
+    }
+  }
+
+  /**
+   * Fetch data from Wing Reporter and analyze it
+   */
+  async analyzeWingData(startDate: string, endDate: string): Promise<AnalysisResult[]> {
+    try {
+      const report = await this.wingReporterService.getAdReport({
+        startDate,
+        endDate,
+        reportType: 'daily', // Default to daily, though it doesn't matter much for aggregated analysis
+      });
+
+      // Convert WingReport campaigns to AdCampaign format
+      const campaigns: AdCampaign[] = report.campaigns.map((c) => ({
+        campaignName: c.campaignName,
+        spend: c.totalSpend,
+        sales: c.sales, // Note: This is "sales via ad conversion"
+        roas: c.roas,
+      }));
+
+      // For now, just run heuristic analysis as requested (no AI yet)
+      // The user said: "지금은 AI 호출 말고 보고서만 가져와서 필요한 내용을 보여주면 돼"
+      // But since the frontend expects AnalysisResult (which includes suggestions),
+      // we should probably run the heuristic analysis or at least return the data in that format.
+      // Re-using analyzeCampaigns will do exactly that (it has a fallback to heuristic).
+
+      return this.analyzeCampaigns(campaigns);
+    } catch (error: any) {
+      this.logger.error('Failed to analyze Wing data', error);
+      throw new Error(`Wing analysis failed: ${error.message}`);
     }
   }
 

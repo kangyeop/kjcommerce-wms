@@ -5,6 +5,7 @@ import {
   UseInterceptors,
   HttpException,
   HttpStatus,
+  Body,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AdAnalysisService } from '../services/ad-analysis.service';
@@ -33,6 +34,35 @@ export class AdAnalysisController {
         {
           success: false,
           message: error.message || 'Failed to analyze ad report',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  @Post('analyze-wing')
+  async analyzeWing(@Body() body: { startDate: string; endDate: string }) {
+    if (!body.startDate || !body.endDate) {
+      throw new HttpException(
+        'startDate and endDate are required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      const results = await this.adAnalysisService.analyzeWingData(
+        body.startDate,
+        body.endDate,
+      );
+
+      return {
+        success: true,
+        data: results,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to analyze Wing data',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
