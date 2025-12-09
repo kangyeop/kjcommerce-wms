@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "KJ Commerce WMS Server",
   "main": "dist/main.js",
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
