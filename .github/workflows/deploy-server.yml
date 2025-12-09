@@ -84,6 +84,8 @@ jobs:
               touch database.sqlite
             fi
 
-            pnpm rebuild
+            which node-gyp || npm install -g node-gyp            
+            pnpm install better-sqlite3 --force
+
 
             pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
