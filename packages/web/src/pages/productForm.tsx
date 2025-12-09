@@ -1,25 +1,27 @@
-import { useState, useEffect, FC } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { productService } from '@/services'
-import { toast } from 'sonner'
+import { useState, useEffect, FC } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { productService } from '@/services';
+import { toast } from 'sonner';
+
+import { calculateCoupangFee } from '@/lib/coupang-fee';
 
 export const ProductFormPage: FC = () => {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const isEditMode = !!id
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const isEditMode = !!id;
 
   // 수정 모드일 때 기존 제품 정보 조회
   const { data: existingProduct } = useQuery({
     queryKey: ['product', id],
     queryFn: () => productService.getById(Number(id)),
-    enabled: isEditMode
-  })
+    enabled: isEditMode,
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -33,7 +35,7 @@ export const ProductFormPage: FC = () => {
     unitsPerPackage: '1',
     coupangShippingFee: '',
     sellingPriceKrw: '',
-  })
+  });
 
   // 기존 데이터 로드
   useEffect(() => {
@@ -50,51 +52,69 @@ export const ProductFormPage: FC = () => {
         unitsPerPackage: (existingProduct.unitsPerPackage || 1).toString(),
         coupangShippingFee: (existingProduct.coupangShippingFee || 0).toString(),
         sellingPriceKrw: (existingProduct.sellingPriceKrw || '').toString(),
-      })
+      });
     }
-  }, [existingProduct])
+  }, [existingProduct]);
+
+  useEffect(() => {
+    const depth = parseFloat(formData.depthCm) || 0;
+    const width = parseFloat(formData.widthCm) || 0;
+    const height = parseFloat(formData.heightCm) || 0;
+    const weight = parseFloat(formData.weightPerUnit) || 0; // g 단위라고 가정되어 있으나 로직상 kg 필요하면 변환해야 함.
+    const sellingPrice = parseFloat(formData.sellingPriceKrw) || 0;
+
+    const weightKg = weight / 1000;
+
+    if (width === 0 && depth === 0 && height === 0 && weight === 0) return;
+
+    const fee = calculateCoupangFee(width, depth, height, weightKg, sellingPrice);
+
+    setFormData((prev) => {
+      if (prev.coupangShippingFee === fee.toString()) return prev;
+      return { ...prev, coupangShippingFee: fee.toString() };
+    });
+  }, [formData.widthCm, formData.depthCm, formData.heightCm, formData.weightPerUnit, formData.sellingPriceKrw]);
 
   // 제품 생성 뮤테이션
   const createProductMutation = useMutation({
     mutationFn: (newProduct: any) => productService.create(newProduct),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      toast.success('제품이 성공적으로 등록되었습니다.')
-      navigate(`/products/${data.id}`)
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('제품이 성공적으로 등록되었습니다.');
+      navigate(`/products/${data.id}`);
     },
-  })
+  });
 
   // 제품 수정 뮤테이션
   const updateProductMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
-      productService.update(id, data),
+    mutationFn: ({ id, data }: { id: number; data: any }) => productService.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      queryClient.invalidateQueries({ queryKey: ['product', id] })
-      navigate(`/products/${id}`)
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['product', id] });
+      navigate(`/products/${id}`);
     },
-  })
+  });
 
   // 제품 삭제 뮤테이션
   const deleteProductMutation = useMutation({
     mutationFn: (id: number) => productService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      navigate('/products')
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      navigate('/products');
     },
-  })
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (!formData.name || !formData.pricePerUnitYuan || !formData.weightPerUnit) {
-      alert('필수 항목을 모두 입력해주세요.')
-      return
+      alert('필수 항목을 모두 입력해주세요.');
+      return;
     }
 
     const productData = {
@@ -109,34 +129,37 @@ export const ProductFormPage: FC = () => {
       ...(formData.productUrl && { productUrl: formData.productUrl }),
       ...(formData.options && { options: formData.options }),
       ...(formData.sellingPriceKrw && { sellingPriceKrw: parseFloat(formData.sellingPriceKrw) }),
-    }
+    };
 
     if (isEditMode) {
-      updateProductMutation.mutate({ id: Number(id), data: productData })
+      updateProductMutation.mutate({ id: Number(id), data: productData });
     } else {
-      createProductMutation.mutate(productData)
+      createProductMutation.mutate(productData);
     }
-  }
+  };
 
   const handleDelete = () => {
     if (window.confirm('정말로 이 제품을 삭제하시겠습니까?')) {
-      deleteProductMutation.mutate(Number(id))
+      deleteProductMutation.mutate(Number(id));
     }
-  }
+  };
 
-  const isPending = createProductMutation.isPending || updateProductMutation.isPending
+  const isPending = createProductMutation.isPending || updateProductMutation.isPending;
 
   return (
     <div className="mx-auto space-y-6 max-w-2xl">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{isEditMode ? '제품 수정' : '제품 추가'}</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(isEditMode ? `/products/${id}` : '/products')}>
+          <Button
+            variant="outline"
+            onClick={() => navigate(isEditMode ? `/products/${id}` : '/products')}
+          >
             취소
           </Button>
           {isEditMode && (
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDelete}
               disabled={deleteProductMutation.isPending}
             >
@@ -154,7 +177,7 @@ export const ProductFormPage: FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">제품명 *</Label>
-              <Input 
+              <Input
                 id="name"
                 name="name"
                 value={formData.name}
@@ -166,7 +189,7 @@ export const ProductFormPage: FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="pricePerUnitYuan">개당 가격 (위안) *</Label>
-              <Input 
+              <Input
                 id="pricePerUnitYuan"
                 name="pricePerUnitYuan"
                 type="number"
@@ -181,7 +204,7 @@ export const ProductFormPage: FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="weightPerUnit">개당 무게 (g) *</Label>
-              <Input 
+              <Input
                 id="weightPerUnit"
                 name="weightPerUnit"
                 type="number"
@@ -197,7 +220,7 @@ export const ProductFormPage: FC = () => {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="widthCm">가로 (cm)</Label>
-                <Input 
+                <Input
                   id="widthCm"
                   name="widthCm"
                   type="number"
@@ -210,7 +233,7 @@ export const ProductFormPage: FC = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="depthCm">세로 (cm)</Label>
-                <Input 
+                <Input
                   id="depthCm"
                   name="depthCm"
                   type="number"
@@ -223,7 +246,7 @@ export const ProductFormPage: FC = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="heightCm">높이 (cm)</Label>
-                <Input 
+                <Input
                   id="heightCm"
                   name="heightCm"
                   type="number"
@@ -235,15 +258,22 @@ export const ProductFormPage: FC = () => {
                 />
               </div>
             </div>
-            {(formData.widthCm && formData.depthCm && formData.heightCm) && (
+            {formData.widthCm && formData.depthCm && formData.heightCm && (
               <p className="text-sm text-muted-foreground">
-                계산된 CBM: {((parseFloat(formData.widthCm) * parseFloat(formData.depthCm) * parseFloat(formData.heightCm)) / 1000000).toFixed(6)} m³
+                계산된 CBM:{' '}
+                {(
+                  (parseFloat(formData.widthCm) *
+                    parseFloat(formData.depthCm) *
+                    parseFloat(formData.heightCm)) /
+                  1000000
+                ).toFixed(6)}{' '}
+                m³
               </p>
             )}
 
             <div className="space-y-2">
               <Label htmlFor="unitsPerPackage">묶음 판매 수량 *</Label>
-              <Input 
+              <Input
                 id="unitsPerPackage"
                 name="unitsPerPackage"
                 type="number"
@@ -254,48 +284,44 @@ export const ProductFormPage: FC = () => {
                 placeholder="묶음으로 판매할 개수"
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                예: 2개 묶음으로 판매하면 2 입력
-              </p>
+              <p className="text-xs text-muted-foreground">예: 2개 묶음으로 판매하면 2 입력</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sellingPriceKrw">예상 쿠팡 판매가 (원)</Label>
+              <Input
+                id="sellingPriceKrw"
+                name="sellingPriceKrw"
+                type="number"
+                min="0"
+                step="1"
+                value={formData.sellingPriceKrw}
+                onChange={handleChange}
+                placeholder="판매가격을 입력하세요"
+              />
+              <p className="text-xs text-muted-foreground">기본 판매가격 (선택사항)</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="coupangShippingFee">쿠팡 배송비 (원)</Label>
-              <Input 
+              <Input
                 id="coupangShippingFee"
                 name="coupangShippingFee"
                 type="number"
                 min="0"
-                step="100"
+                step="1"
                 value={formData.coupangShippingFee}
                 onChange={handleChange}
                 placeholder="쿠팡 배송비를 입력하세요"
               />
               <p className="text-xs text-muted-foreground">
-                판매가격 계산 시 사용됩니다 (기본값: 0원)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sellingPriceKrw">쿠팡 판매가 (원)</Label>
-              <Input 
-                id="sellingPriceKrw"
-                name="sellingPriceKrw"
-                type="number"
-                min="0"
-                step="100"
-                value={formData.sellingPriceKrw}
-                onChange={handleChange}
-                placeholder="판매가격을 입력하세요"
-              />
-              <p className="text-xs text-muted-foreground">
-                기본 판매가격 (선택사항)
+                판매가격 계산 시 사용됩니다 (자동 계산됨, 필요시 수정 가능)
               </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="productUrl">상품 URL</Label>
-              <Input 
+              <Input
                 id="productUrl"
                 name="productUrl"
                 type="url"
@@ -319,11 +345,11 @@ export const ProductFormPage: FC = () => {
 
             <div className="flex gap-2 pt-4">
               <Button type="submit" className="flex-1" disabled={isPending}>
-                {isPending ? '저장 중...' : (isEditMode ? '수정 완료' : '등록하기')}
+                {isPending ? '저장 중...' : isEditMode ? '수정 완료' : '등록하기'}
               </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => navigate(isEditMode ? `/products/${id}` : '/products')}
               >
                 취소
@@ -333,7 +359,5 @@ export const ProductFormPage: FC = () => {
         </CardContent>
       </Card>
     </div>
-  )
-}
-
-
+  );
+};
