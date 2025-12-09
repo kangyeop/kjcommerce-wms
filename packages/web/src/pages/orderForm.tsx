@@ -137,7 +137,10 @@ export const OrderFormPage: FC = () => {
 
   // 발주 수정 mutation
   const updateOrderMutation = useMutation({
-    mutationFn: (updatedOrder: CreateOrderDto) => orderService.update(Number(id), updatedOrder),
+    mutationFn: ({ orderId, data }: { orderId: number, data: CreateOrderDto }) => {
+      if (!orderId) throw new Error('Order ID is missing')
+      return orderService.update(orderId, data)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['order', id] })
@@ -188,8 +191,8 @@ export const OrderFormPage: FC = () => {
       orderDate: formData.orderDate,
     }
     
-    if (isEditMode) {
-      updateOrderMutation.mutate(orderDto)
+    if (isEditMode && id) {
+      updateOrderMutation.mutate({ orderId: Number(id), data: orderDto })
     } else {
       createOrderMutation.mutate(orderDto)
     }
