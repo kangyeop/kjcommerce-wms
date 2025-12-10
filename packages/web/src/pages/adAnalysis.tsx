@@ -1,9 +1,9 @@
-import { useState, FC } from 'react'
+import { useState, FC, useRef, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { BarChart3, RefreshCw, TrendingUp } from 'lucide-react'
+import { BarChart3, RefreshCw, TrendingUp, XCircle } from 'lucide-react'
 import { adAnalysisService } from '@/services/adAnalysisService'
 import { toast } from 'sonner'
 
@@ -14,22 +14,56 @@ export const AdAnalysisPage: FC = () => {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
 
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
   const analyzeWingAds = async () => {
     if (!startDate || !endDate) return
+    
+    // Cancel previous request if exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create new AbortController
+    abortControllerRef.current = new AbortController()
     
     setIsAnalyzing(true)
     setAnalysisResult([])
     try {
-      const response = await adAnalysisService.analyzeWingReport(startDate, endDate)
+      const response = await adAnalysisService.analyzeWingReport(
+        startDate, 
+        endDate,
+        abortControllerRef.current.signal
+      )
       if (response.success) {
         setAnalysisResult(response.data)
         toast.success(`${response.data.length}개 캠페인 분석 완료`)
       }
-    } catch (error) {
-      console.error('Wing analysis failed:', error)
-      toast.error('쿠팡 윙 데이터 분석에 실패했습니다. 서버 로그를 확인해주세요.')
+    } catch (error: any) {
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        toast.info('분석이 취소되었습니다.')
+      } else {
+        console.error('Wing analysis failed:', error)
+        toast.error('쿠팡 윙 데이터 분석에 실패했습니다. 서버 로그를 확인해주세요.')
+      }
     } finally {
       setIsAnalyzing(false)
+      abortControllerRef.current = null
+    }
+  }
+
+  const cancelAnalysis = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
     }
   }
 
@@ -91,6 +125,16 @@ export const AdAnalysisPage: FC = () => {
               <RefreshCw className={`w-4 h-4 mr-2 ${isAnalyzing ? 'animate-spin' : ''}`} />
               {isAnalyzing ? '데이터 가져오기...' : '데이터 가져오기 & 분석'}
             </Button>
+            {isAnalyzing && (
+              <Button 
+                onClick={cancelAnalysis} 
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                취소
+              </Button>
+            )}
           </div>
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
             <p className="text-sm text-blue-800">
