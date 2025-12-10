@@ -10,7 +10,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AdAnalysisService } from '../services/ad-analysis.service';
 
-@Controller('api/ad-analysis')
+@Controller('ad-analysis')
 export class AdAnalysisController {
   constructor(private readonly adAnalysisService: AdAnalysisService) {}
 
